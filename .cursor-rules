@@ -1,0 +1,6 @@
+- Follow the tasks in `TASKS.md` when generating code.
+- Use Python 3.11 and keep dependencies minimal.
+- Format code with `black` and include type hints.
+- Run `ruff` for linting and `pytest -q` before committing.
+- Write FastAPI endpoints to match the PRD.
+- Keep commands idempotent and testable.
