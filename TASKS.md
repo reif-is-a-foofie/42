@@ -36,6 +36,9 @@ Leverage these proven projects and pin their versions in `requirements.txt`:
 Wrap each library behind an interface in `alexandrian` so the rest of the
 codebase never calls these dependencies directly.
 
+Keep this picture in mind while you work; each task below maps back to one of these pieces.
+
+
 ## Development Basics
 New engineers should set up a Python 3.11 virtual environment and install the dependencies from `requirements.txt`. Before committing code:
 
@@ -61,6 +64,14 @@ Even small modules should have at least one test so we know they work as expecte
 ## Embedding Engine
 - Load `bge-small-en` via `sentence-transformers` when the application starts.
 - Wrap the library in `embedding.py` so callers use a stable API.
+
+   `embedding.py`, `vector_store.py`, `cluster.py`, `prompt.py`, `llm.py`, `chunker.py`, `cli.py`, `api.py`, and `config.py`.
+2. Create `requirements.txt` enumerating all dependencies listed in the PRD (FastAPI, sentence-transformers, qdrant-client, hdbscan, etc.).
+3. Provide a starter `alexandrian.config.json` with default model names, ports and embedding dimensions.
+4. Configure linting and formatters (`black` + `ruff`).
+
+## Embedding Engine
+- Load `bge-small-en` via `sentence-transformers` when the application starts.
 - Implement two helper functions with type hints:
   - `embed_text(text: str) -> list[float]`
   - `embed_text_batch(texts: list[str]) -> list[list[float]]`
@@ -74,6 +85,8 @@ Even small modules should have at least one test so we know they work as expecte
 - Wrap `qdrant-client` inside `vector_store.py` exposing
   `upsert`, `search`, `update_payload`, and `get_all_vectors` so callers never
   import the library directly.
+
+- Implement wrapper methods `upsert`, `search`, `update_payload`, and `get_all_vectors`.
 - Read connection info from `alexandrian.config.json`.
 - Add tests using a temporary Qdrant instance to verify inserts and searches.
 - Document each method with type hints and explain what parameters mean.
@@ -82,6 +95,8 @@ Even small modules should have at least one test so we know they work as expecte
 - Build `recluster_vectors()` that loads all vectors and runs `hdbscan` to
   assign a `cluster_id` to each payload. Keep the library wrapped inside
   `cluster.py` so future upgrades are isolated.
+  
+- Build `recluster_vectors()` that loads all vectors, runs HDBSCAN and updates each payload with `cluster_id`.
 - Optionally generate a UMAP plot saved under `docs/cluster.png`.
 - Provide CLI command `alexandrian recluster` and FastAPI endpoint `/recluster`.
 - Include unit tests that feed a small set of vectors and assert clusters are returned.
@@ -97,12 +112,15 @@ Even small modules should have at least one test so we know they work as expecte
 - Connect to the local Ollama server (default `mistral`).
 - Implement `respond(prompt: str) -> str` using the Ollama HTTP API. Place this
   logic in `llm.py` so the rest of the project calls a single helper function.
+- Implement `respond(prompt: str) -> str` using the Ollama HTTP API.
 - Stream tokens back to the CLI for progress feedback.
 - Add a test that mocks the Ollama API and checks that streaming works without errors.
 
 ## Chunker
 - Parse Python files using `tree-sitter` to split by function or class.
 - Split Markdown files by heading level with `unstructured` as a fallback.
+- Parse Python files with `ast` to split by function or class.
+- Split Markdown files by heading level.
 - Emit metadata: file path, start/end lines and cluster ID.
 - Implement `alexandrian import PATH` to ingest a folder recursively.
 - Provide tests covering Python and Markdown splitting so future changes do not break chunk generation.
@@ -112,6 +130,7 @@ Even small modules should have at least one test so we know they work as expecte
 - Commands: `create`, `import`, `ask`, `recluster`, `embed`, `purge`, `status`.
 - Each command should call the corresponding FastAPI route via HTTP. Keep the CLI
   logic separate in `cli.py` so other tools can reuse the functions.
+- Each command should call the corresponding FastAPI route via HTTP.
 - Add tests that invoke the CLI commands using `typer`'s testing utilities.
 
 ## FastAPI Backend
