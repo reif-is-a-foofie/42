@@ -5,7 +5,7 @@ Tests for 42.un Source Scanner components.
 import pytest
 import asyncio
 import json
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from datetime import datetime
 import sys
 import os
@@ -23,6 +23,27 @@ from un.source_scanner import (
 )
 from un.redis_bus import RedisBus
 from un.events import Event, EventType
+
+
+class AsyncContextMock:
+    """Mock class for async context managers."""
+    
+    def __init__(self, status=200, json_data=None, text_data=""):
+        self.status = status
+        self.json_data = json_data or []
+        self.text_data = text_data
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return None
+    
+    async def json(self):
+        return self.json_data
+    
+    async def text(self):
+        return self.text_data
 
 
 class TestSourceScanner:
@@ -158,10 +179,9 @@ class TestGitHubScanner:
         scanner = GitHubScanner(mock_redis_bus, config)
         
         # Mock session with error response
-        mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.status = 404
-        mock_session.get.return_value.__aenter__.return_value = mock_response
+        mock_session = Mock()
+        mock_response = AsyncContextMock(status=404)
+        mock_session.get.return_value = mock_response
         
         scanner.session = mock_session
         
@@ -174,20 +194,21 @@ class TestGitHubScanner:
         scanner = GitHubScanner(mock_redis_bus, config)
         
         # Mock session with successful response
-        mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value=[{
-            "sha": "abc123",
-            "commit": {
-                "author": {
-                    "name": "Test Author",
-                    "date": "2024-01-01T00:00:00Z"
-                },
-                "message": "Test commit"
-            }
-        }])
-        mock_session.get.return_value.__aenter__.return_value = mock_response
+        mock_session = Mock()
+        mock_response = AsyncContextMock(
+            status=200,
+            json_data=[{
+                "sha": "abc123",
+                "commit": {
+                    "author": {
+                        "name": "Test Author",
+                        "date": "2024-01-01T00:00:00Z"
+                    },
+                    "message": "Test commit"
+                }
+            }]
+        )
+        mock_session.get.return_value = mock_response
         
         # Mock no stored state (new commit)
         mock_redis_bus.redis.get.return_value = None
@@ -283,10 +304,9 @@ class TestRSSFeedScanner:
         scanner = RSSFeedScanner(mock_redis_bus, config)
         
         # Mock session with error response
-        mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.status = 404
-        mock_session.get.return_value.__aenter__.return_value = mock_response
+        mock_session = Mock()
+        mock_response = AsyncContextMock(status=404)
+        mock_session.get.return_value = mock_response
         
         scanner.session = mock_session
         
@@ -336,10 +356,9 @@ class TestAPIEndpointScanner:
         scanner = APIEndpointScanner(mock_redis_bus, config)
         
         # Mock session with error response
-        mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.status = 500
-        mock_session.request.return_value.__aenter__.return_value = mock_response
+        mock_session = Mock()
+        mock_response = AsyncContextMock(status=500)
+        mock_session.request.return_value = mock_response
         
         scanner.session = mock_session
         
