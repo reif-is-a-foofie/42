@@ -17,6 +17,12 @@ from .source_scanner import (
     APIEndpointScanner,
     SourceScannerOrchestrator
 )
+from .webhook_handlers import (
+    WebhookValidator,
+    GitHubWebhookHandler,
+    GenericWebhookHandler,
+    WebhookManager
+)
 from .events import Event, EventType
 
 __all__ = [
@@ -27,6 +33,10 @@ __all__ = [
     'RSSFeedScanner',
     'APIEndpointScanner',
     'SourceScannerOrchestrator',
+    'WebhookValidator',
+    'GitHubWebhookHandler',
+    'GenericWebhookHandler',
+    'WebhookManager',
     'Event',
     'EventType'
 ] 
