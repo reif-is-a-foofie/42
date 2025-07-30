@@ -413,7 +413,7 @@ class KnowledgeEngine:
         
         # Initialize existing 42.zero tools
         self.embedding_engine = EmbeddingEngine()
-        self.vector_store = VectorStore(collection_name="42_knowledge")
+        self.vector_store = VectorStore()  # Use default 42_chunks collection
         
         # Ensure collection exists
         vector_size = self.embedding_engine.get_dimension()

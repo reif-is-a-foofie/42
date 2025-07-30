@@ -652,23 +652,30 @@ def search(
         console.print(f"[bold]Searching knowledge base for: {query}[/bold]")
         
         async def search_knowledge():
-            redis_bus = RedisBus()
-            engine = KnowledgeEngine(redis_bus)
+            # Use existing 42.zero search functionality directly
+            embedding_engine = EmbeddingEngine()
+            vector_store = VectorStore()  # Uses default 42_chunks collection
             
             # Load sources from file if exists
             import json
             import os
             
-            if os.path.exists("universal_sources.json"):
-                with open("universal_sources.json", "r") as f:
-                    sources_data = json.load(f)
-                    for item in sources_data:
-                        from .un.knowledge_engine import KnowledgeSource
-                        source = KnowledgeSource.from_dict(item)
-                        engine.add_source(source)
+            # Generate embedding for query using existing 42.zero tools
+            query_embedding = embedding_engine.embed_text(query)
             
-            # Search the knowledge base
-            results = engine.search_knowledge(query, limit=limit)
+            # Search using existing 42.zero VectorStore
+            search_results = vector_store.search(query_embedding, limit=limit)
+            
+            # Convert to display format
+            results = []
+            for result in search_results:
+                results.append({
+                    "content": result.text,
+                    "source_id": result.metadata.get("source_id", result.file_path),
+                    "score": result.score,
+                    "timestamp": result.metadata.get("timestamp", ""),
+                    "metadata": result.metadata
+                })
             
             if not results:
                 console.print("[yellow]No results found[/yellow]")
