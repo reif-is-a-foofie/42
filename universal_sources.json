@@ -226,5 +226,80 @@
     "metadata": {
       "description": "Computer science preprints from arXiv"
     }
+  },
+  {
+    "id": "source_arxiv_mathematics",
+    "name": "arXiv Mathematics",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/math",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Mathematics preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_physics",
+    "name": "arXiv Physics",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/physics",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Physics preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_quantitative_biology",
+    "name": "arXiv Quantitative Biology",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/q-bio",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Quantitative biology preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_quantitative_finance",
+    "name": "arXiv Quantitative Finance",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/q-fin",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Quantitative finance preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_reliefweb_global_disasters",
+    "name": "ReliefWeb Global Disasters",
+    "type": "rss",
+    "domain": "crisis",
+    "url": "https://reliefweb.int/updates/rss.xml",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Global disaster updates from ReliefWeb"
+    }
   }
 ]

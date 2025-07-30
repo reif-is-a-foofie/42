@@ -14,8 +14,9 @@ from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
 from .api import run_server
-from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
-from .un.redis_bus import RedisBus
+# Import heavy components only when needed
+# from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
+# from .un.redis_bus import RedisBus
 
 app = typer.Typer()
 console = Console()
@@ -418,7 +419,7 @@ def watch():
     """Start the universal knowledge engine."""
     try:
         import asyncio
-        from .un.knowledge_engine import KnowledgeEngine
+        from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource
         from .un.redis_bus import RedisBus
         
         console.print("[bold]Starting Universal Knowledge Engine...[/bold]")
@@ -469,54 +470,44 @@ def learn(
         import asyncio
         import aiohttp
         
-        # Validate source if requested
+        # Validate source if requested - without initializing heavy components
         if validate:
             console.print(f"[bold]Validating source: {name}[/bold]")
             
             async def validate_source():
-                timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
-                async with aiohttp.ClientSession(timeout=timeout) as session:
+                if source_type.lower() == "rss":
+                    # Use lightweight validation
+                    import subprocess
+                    import sys
+                    
                     try:
-                        if source_type.lower() == "rss":
-                            from .un.knowledge_engine import RSSFetcher
-                            fetcher = RSSFetcher(session)
-                            
-                            # Create temporary source for validation
-                            temp_source = KnowledgeSource(
-                                id="temp",
-                                name=name,
-                                type=SourceType("rss"),
-                                domain=DomainType(domain.lower()),
-                                url=url,
-                                frequency="5min",
-                                parser="rss",
-                                active=True,
-                                metadata={"description": description}
-                            )
-                            
-                            documents = await fetcher.fetch(temp_source)
-                            if documents:
-                                console.print(f"[green]✓[/green] Valid RSS feed - found {len(documents)} items")
-                                console.print(f"   Latest: {documents[0].content[:100]}...")
-                                return True
-                            else:
-                                console.print(f"[yellow]⚠[/yellow] RSS feed returned no items")
-                                return False
+                        result = subprocess.run([
+                            sys.executable, "validate_rss.py", url
+                        ], capture_output=True, text=True, timeout=15)
+                        
+                        if result.returncode == 0:
+                            console.print(result.stdout.strip())
+                            return True
                         else:
-                            console.print(f"[yellow]⚠[/yellow] Validation not implemented for {source_type}")
+                            console.print(result.stderr.strip())
                             return False
-                    except asyncio.TimeoutError:
-                        console.print(f"[red]✗[/red] Validation timed out after 10 seconds")
+                    except subprocess.TimeoutExpired:
+                        console.print(f"[red]✗[/red] Validation timed out after 15 seconds")
                         return False
                     except Exception as e:
                         console.print(f"[red]✗[/red] Validation failed: {e}")
                         return False
-                return True
+                else:
+                    console.print(f"[yellow]⚠[/yellow] Validation not implemented for {source_type}")
+                    return False
             
             validation_result = asyncio.run(validate_source())
             if not validation_result:
                 console.print("[yellow]Source not added - validation failed[/yellow]")
                 return
+        
+        # Only initialize heavy components after validation passes
+        from .un.knowledge_engine import KnowledgeSource, SourceType, DomainType
         
         # Load existing sources
         sources = []
