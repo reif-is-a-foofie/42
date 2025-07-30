@@ -414,7 +414,7 @@ def purge():
 
 
 @app.command()
-def knowledge_start():
+def watch():
     """Start the universal knowledge engine."""
     try:
         import asyncio
@@ -454,17 +454,66 @@ def knowledge_start():
 
 
 @app.command()
-def knowledge_add(
+def learn(
     name: str = typer.Argument(..., help="Source name"),
     url: str = typer.Argument(..., help="Source URL"),
     source_type: str = typer.Argument(..., help="Source type (rss, api, github)"),
     domain: str = typer.Argument(..., help="Domain (weather, medical, finance, research, etc.)"),
-    description: str = typer.Option("", "--description", "-d", help="Description")
+    description: str = typer.Option("", "--description", "-d", help="Description"),
+    validate: bool = typer.Option(True, "--validate", "-v", help="Validate source before adding")
 ):
     """Add a knowledge source to the universal engine."""
     try:
         import json
         import os
+        import asyncio
+        import aiohttp
+        
+        # Validate source if requested
+        if validate:
+            console.print(f"[bold]Validating source: {name}[/bold]")
+            
+            async def validate_source():
+                async with aiohttp.ClientSession() as session:
+                    try:
+                        if source_type.lower() == "rss":
+                            from .un.knowledge_engine import RSSFetcher
+                            fetcher = RSSFetcher(session)
+                            
+                            # Create temporary source for validation
+                            temp_source = KnowledgeSource(
+                                id="temp",
+                                name=name,
+                                type=SourceType("rss"),
+                                domain=DomainType(domain.lower()),
+                                url=url,
+                                frequency="5min",
+                                parser="rss",
+                                active=True,
+                                metadata={"description": description}
+                            )
+                            
+                            documents = await fetcher.fetch(temp_source)
+                            if documents:
+                                console.print(f"[green]✓[/green] Valid RSS feed - found {len(documents)} items")
+                                console.print(f"   Latest: {documents[0].content[:100]}...")
+                            else:
+                                console.print(f"[yellow]⚠[/yellow] RSS feed returned no items")
+                                if not typer.confirm("Continue anyway?"):
+                                    return False
+                        else:
+                            console.print(f"[yellow]⚠[/yellow] Validation not implemented for {source_type}")
+                            if not typer.confirm("Continue anyway?"):
+                                return False
+                    except Exception as e:
+                        console.print(f"[red]✗[/red] Validation failed: {e}")
+                        if not typer.confirm("Continue anyway?"):
+                            return False
+                return True
+            
+            if not asyncio.run(validate_source()):
+                console.print("[yellow]Source not added[/yellow]")
+                return
         
         # Load existing sources
         sources = []
@@ -508,14 +557,14 @@ def knowledge_add(
 
 
 @app.command()
-def knowledge_list():
+def sources():
     """List all knowledge sources."""
     try:
         import json
         import os
         
         if not os.path.exists("universal_sources.json"):
-            console.print("[yellow]No sources found. Add some with: 42 knowledge-add[/yellow]")
+            console.print("[yellow]No sources found. Add some with: 42 learn[/yellow]")
             return
         
         with open("universal_sources.json", "r") as f:
@@ -539,7 +588,7 @@ def knowledge_list():
 
 
 @app.command()
-def knowledge_test(
+def test(
     source_id: str = typer.Argument(..., help="Source ID to test")
 ):
     """Test a knowledge source."""

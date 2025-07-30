@@ -46,5 +46,170 @@
     "metadata": {
       "description": "Real-time earthquake monitoring"
     }
+  },
+  {
+    "id": "source_arxiv_computer_science",
+    "name": "arXiv Computer Science",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/cs",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Computer science preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_mathematics",
+    "name": "arXiv Mathematics",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/math",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Mathematics preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_physics",
+    "name": "arXiv Physics",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/physics",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Physics preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_quantitative_biology",
+    "name": "arXiv Quantitative Biology",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/q-bio",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Quantitative biology preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_arxiv_quantitative_finance",
+    "name": "arXiv Quantitative Finance",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/q-fin",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Quantitative finance preprints from arXiv"
+    }
+  },
+  {
+    "id": "source_biorxiv_biology",
+    "name": "bioRxiv Biology",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://www.biorxiv.org/rss/latest.xml",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Biology preprints from bioRxiv"
+    }
+  },
+  {
+    "id": "source_medrxiv_medical",
+    "name": "medRxiv Medical",
+    "type": "rss",
+    "domain": "medical",
+    "url": "https://www.medrxiv.org/rss/latest.xml",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Medical preprints from medRxiv"
+    }
+  },
+  {
+    "id": "source_socarxiv_social_sciences",
+    "name": "SocArXiv Social Sciences",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://osf.io/preprints.socarxiv/rss",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Social sciences preprints from SocArXiv"
+    }
+  },
+  {
+    "id": "source_econstor_economics",
+    "name": "EconStor Economics",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://ideas.repec.org/rss/latest.xml",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Economics working papers from EconStor/RePEc"
+    }
+  },
+  {
+    "id": "source_osf_preprints",
+    "name": "OSF Preprints",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://osf.io/preprints/rss",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Aggregated preprints from OSF"
+    }
+  },
+  {
+    "id": "source_test_rss_feed",
+    "name": "Test RSS Feed",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/cs",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Testing RSS validation"
+    }
   }
 ]
