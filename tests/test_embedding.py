@@ -1,7 +1,13 @@
 """Tests for the embedding engine."""
 
 import pytest
-from 42.embedding import EmbeddingEngine
+import sys
+import os
+
+# Add the 42 directory to the Python path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "42"))
+
+from embedding import EmbeddingEngine
 
 
 def test_embedding_engine_initialization():
