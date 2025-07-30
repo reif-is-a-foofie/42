@@ -474,7 +474,8 @@ def learn(
             console.print(f"[bold]Validating source: {name}[/bold]")
             
             async def validate_source():
-                async with aiohttp.ClientSession() as session:
+                timeout = aiohttp.ClientTimeout(total=10)  # 10 second timeout
+                async with aiohttp.ClientSession(timeout=timeout) as session:
                     try:
                         if source_type.lower() == "rss":
                             from .un.knowledge_engine import RSSFetcher
@@ -497,22 +498,24 @@ def learn(
                             if documents:
                                 console.print(f"[green]✓[/green] Valid RSS feed - found {len(documents)} items")
                                 console.print(f"   Latest: {documents[0].content[:100]}...")
+                                return True
                             else:
                                 console.print(f"[yellow]⚠[/yellow] RSS feed returned no items")
-                                if not typer.confirm("Continue anyway?"):
-                                    return False
+                                return False
                         else:
                             console.print(f"[yellow]⚠[/yellow] Validation not implemented for {source_type}")
-                            if not typer.confirm("Continue anyway?"):
-                                return False
+                            return False
+                    except asyncio.TimeoutError:
+                        console.print(f"[red]✗[/red] Validation timed out after 10 seconds")
+                        return False
                     except Exception as e:
                         console.print(f"[red]✗[/red] Validation failed: {e}")
-                        if not typer.confirm("Continue anyway?"):
-                            return False
+                        return False
                 return True
             
-            if not asyncio.run(validate_source()):
-                console.print("[yellow]Source not added[/yellow]")
+            validation_result = asyncio.run(validate_source())
+            if not validation_result:
+                console.print("[yellow]Source not added - validation failed[/yellow]")
                 return
         
         # Load existing sources

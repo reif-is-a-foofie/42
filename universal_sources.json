@@ -211,5 +211,20 @@
     "metadata": {
       "description": "Testing RSS validation"
     }
+  },
+  {
+    "id": "source_arxiv_computer_science",
+    "name": "arXiv Computer Science",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://rss.arxiv.org/rss/cs",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Computer science preprints from arXiv"
+    }
   }
 ]
