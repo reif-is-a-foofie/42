@@ -1,3 +1,0 @@
-[console_scripts]
-42 = 42.cli:main
-
