@@ -471,44 +471,57 @@ class KnowledgeEngine:
                     logger.error(f"Error processing source {source.name}: {e}")
     
     async def _store_documents(self, documents: List[KnowledgeDocument]):
-        """Store documents in vector database using existing 42.zero tools."""
+        """Store documents using existing 42.zero import functionality."""
         if not documents:
             return
             
         try:
-            # Prepare documents for vectorization
-            texts = []
+            # Convert KnowledgeDocuments to Chunks (42.zero format)
+            from ..interfaces import Chunk
+            from qdrant_client.models import PointStruct
             
+            chunks = []
             for doc in documents:
                 # Generate vector ID
                 content_hash = hashlib.md5(doc.content.encode()).hexdigest()
                 doc.vector_id = f"doc_{content_hash}"
                 
-                # Prepare text for embedding
-                text = doc.content[:1000]  # Limit to first 1000 chars for embedding
-                texts.append(text)
-            
-            # Generate embeddings using existing EmbeddingEngine
-            embeddings = self.embedding_engine.embed_text_batch(texts)
-            
-            # Create Qdrant points with embeddings
-            from qdrant_client.models import PointStruct
-            points = []
-            for i, doc in enumerate(documents):
-                point = PointStruct(
-                    id=doc.vector_id,
-                    vector=embeddings[i],  # Set embedding directly
-                    payload={
-                        "text": doc.content,
+                # Convert to 42.zero Chunk format
+                chunk = Chunk(
+                    text=doc.content,
+                    file_path=f"knowledge_source:{doc.source_id}",
+                    start_line=0,
+                    end_line=0,
+                    metadata={
                         "source_id": doc.source_id,
                         "timestamp": doc.timestamp.isoformat(),
-                        "metadata": doc.metadata,
-                        "vector_id": doc.vector_id
+                        "vector_id": doc.vector_id,
+                        **doc.metadata
+                    }
+                )
+                chunks.append(chunk)
+            
+            # Use existing 42.zero embedding and storage (same as import_data command)
+            points = []
+            for i, chunk in enumerate(chunks):
+                # Embed using existing EmbeddingEngine
+                vector = self.embedding_engine.embed_text(chunk.text)
+                
+                # Create point using 42.zero format
+                point = PointStruct(
+                    id=f"knowledge_{i}_{hash(chunk.text)}",
+                    vector=vector,
+                    payload={
+                        "text": chunk.text,
+                        "file_path": chunk.file_path,
+                        "start_line": chunk.start_line,
+                        "end_line": chunk.end_line,
+                        "metadata": chunk.metadata or {}
                     }
                 )
                 points.append(point)
             
-            # Store in vector database using existing VectorStore
+            # Store using existing VectorStore.upsert (same as import_data)
             self.vector_store.upsert(points)
             
             # Also publish to Redis for event system
@@ -520,10 +533,10 @@ class KnowledgeEngine:
                     source="knowledge_engine"
                 ))
             
-            logger.info(f"Stored {len(documents)} documents in vector store with embeddings")
+            logger.info(f"Stored {len(documents)} documents using 42.zero import functionality")
             
         except Exception as e:
-            logger.error(f"Failed to store documents in vector store: {e}")
+            logger.error(f"Failed to store documents: {e}")
             # Fallback to Redis only
             for doc in documents:
                 self.redis_bus.publish_event(Event(
