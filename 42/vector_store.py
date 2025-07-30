@@ -118,4 +118,20 @@ class VectorStore:
             logger.info(f"Deleted collection: {self.collection_name}")
         except Exception as e:
             logger.error(f"Failed to delete collection: {e}")
-            raise 
+            raise
+    
+    def test_connection(self) -> bool:
+        """Test connection to Qdrant."""
+        try:
+            self.client.get_collections()
+            return True
+        except Exception:
+            return False
+    
+    def get_total_points(self) -> int:
+        """Get total number of points in collection."""
+        try:
+            info = self.client.get_collection(self.collection_name)
+            return info.points_count
+        except Exception:
+            return 0 

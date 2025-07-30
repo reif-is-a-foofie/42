@@ -2,6 +2,7 @@
 
 import typer
 import time
+from typing import Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from loguru import logger
@@ -12,6 +13,7 @@ from .vector_store import VectorStore
 from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
+from .api import run_server
 
 app = typer.Typer()
 console = Console()
@@ -160,11 +162,13 @@ def import_data(path: str = typer.Argument(..., help="Path to file or directory 
 def extract_github(
     repo_url: str = typer.Argument(..., help="GitHub repository URL to extract"),
     background: bool = typer.Option(False, "--background", "-b", help="Run in background"),
-    max_workers: int = typer.Option(4, "--workers", "-w", help="Number of worker threads")
+    max_workers: int = typer.Option(None, "--max-workers", "-w", help="Number of parallel workers (default: CPU count)"),
+    verbose: bool = typer.Option(True, "--verbose", "-v", help="Enable verbose logging"),
+    dump_embeddings: Optional[str] = typer.Option(None, "--dump-embeddings", help="Save embeddings to JSONL file")
 ):
     """Extract and analyze a GitHub repository."""
     try:
-        extractor = GitHubExtractor(max_workers=max_workers)
+        extractor = GitHubExtractor(max_workers=max_workers, verbose=verbose, dump_embeddings_path=dump_embeddings)
         
         if background:
             # Start background job
@@ -372,6 +376,25 @@ def list_models():
             
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to list models: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(8000, "--port", "-p", help="Port to bind to")
+):
+    """Start the FastAPI server."""
+    try:
+        console.print(f"[bold]Starting 42 API server on {host}:{port}[/bold]")
+        console.print(f"[dim]API docs: http://{host}:{port}/docs[/dim]")
+        console.print(f"[dim]Health check: http://{host}:{port}/status[/dim]")
+        console.print()
+        
+        run_server(host=host, port=port)
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to start server: {e}")
         raise typer.Exit(1)
 
 

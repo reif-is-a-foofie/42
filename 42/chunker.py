@@ -14,7 +14,12 @@ class Chunker:
     
     def __init__(self):
         """Initialize the chunker."""
-        self.supported_extensions = {'.py', '.md', '.txt', '.js', '.ts', '.java', '.cpp', '.c', '.h'}
+        self.supported_extensions = {
+            '.py', '.md', '.txt', '.js', '.ts', '.java', '.cpp', '.c', '.h',
+            '.go', '.rs', '.rb', '.php', '.html', '.css', '.scss', '.sh',
+            '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
+            '.sql', '.r', '.m', '.scala', '.kt', '.swift', '.dart'
+        }
     
     def chunk_file(self, file_path: str) -> List[Chunk]:
         """Split a file into chunks."""
