@@ -32,10 +32,7 @@ class GitHubExtractor:
         self.job_manager = JobManager()
         self.verbose = verbose
         self.dump_embeddings_path = dump_embeddings_path
-        self.embedding_dump_file = None
-        self.embeddings_to_dump = []  # Store embeddings for main thread writing
-        
-        # Initialize embedding dump file if path provided
+        # Embedding dump is now handled directly in _stream_to_vector_db
         if self.dump_embeddings_path:
             logger.info(f"Embedding dump enabled: {self.dump_embeddings_path}")
         
@@ -50,9 +47,8 @@ class GitHubExtractor:
         }
     
     def __del__(self):
-        """Cleanup embedding dump file."""
-        if self.embedding_dump_file:
-            self.embedding_dump_file.close()
+        """Cleanup method."""
+        pass
     
     def _should_process_file(self, file_path: str) -> bool:
         """Check if file should be processed."""
@@ -80,25 +76,7 @@ class GitHubExtractor:
         except Exception:
             return False
     
-    def _queue_embedding_dump(self, file_path: str, chunk_text: str, embedding: List[float]):
-        """Queue embedding for dump in main thread."""
-        if self.dump_embeddings_path:
-            self.embeddings_to_dump.append({
-                "file": file_path,
-                "chunk": chunk_text,
-                "embedding": embedding
-            })
-    
-    def _write_embeddings_dump(self):
-        """Write all queued embeddings to file."""
-        if self.dump_embeddings_path and self.embeddings_to_dump:
-            try:
-                with open(self.dump_embeddings_path, 'w') as f:
-                    for data in self.embeddings_to_dump:
-                        f.write(json.dumps(data) + '\n')
-                logger.info(f"Embedding dump completed: {self.dump_embeddings_path} ({len(self.embeddings_to_dump)} embeddings)")
-            except Exception as e:
-                logger.error(f"Failed to write embedding dump: {e}")
+
     
     def _process_single_file(self, file_path: str) -> Tuple[str, List[Chunk]]:
         """Process a single file and return chunks."""
@@ -190,9 +168,6 @@ class GitHubExtractor:
                             preview = chunk.text[:80].replace('\n', '\\n')
                             vector_preview = vector[:5] if len(vector) >= 5 else vector
                             logger.info(f"  Chunk {i+j+1}: {preview}... -> vector[{len(vector)}] {vector_preview}...")
-                            
-                            # Queue embedding for dump
-                            self._queue_embedding_dump(chunk.file_path, chunk.text, vector)
                     
                 except AttributeError:
                     # Fallback to individual embedding
@@ -204,9 +179,6 @@ class GitHubExtractor:
                             preview = chunk.text[:80].replace('\n', '\\n')
                             vector_preview = vector[:5] if len(vector) >= 5 else vector
                             logger.info(f"  Chunk: {preview}... -> vector[{len(vector)}] {vector_preview}...")
-                        
-                        # Queue embedding for dump
-                        self._queue_embedding_dump(chunk.file_path, chunk.text, vector)
                 
                 pbar.update(len(batch))
                 
@@ -219,53 +191,75 @@ class GitHubExtractor:
     def _stream_to_vector_db(self, chunks: List[Chunk], vectors: List[List[float]], 
                             repo_url: str, repo_info: Dict,
                             progress_callback: Optional[Callable] = None) -> None:
-        """Stream results to vector database in batches."""
+        """Stream results to vector database in batches and dump embeddings."""
         from qdrant_client.models import PointStruct
         
         batch_size = 100
         total_batches = (len(chunks) + batch_size - 1) // batch_size
         total_stored = 0
         
-        with tqdm.tqdm(total=len(chunks), desc="Storing in vector DB") as pbar:
-            for i in range(0, len(chunks), batch_size):
-                batch_chunks = chunks[i:i + batch_size]
-                batch_vectors = vectors[i:i + batch_size]
-                
-                # Create points for this batch
-                points = []
-                for j, (chunk, vector) in enumerate(zip(batch_chunks, batch_vectors)):
-                    chunk_metadata = dict(chunk.metadata) if chunk.metadata else {}
-                    chunk_metadata.update({
-                        "repo_url": repo_url,
-                        "repo_info": repo_info,
-                        "chunk_id": i + j
-                    })
+        # Open dump file if enabled
+        dump_file = None
+        if self.dump_embeddings_path:
+            dump_file = open(self.dump_embeddings_path, 'w')
+            logger.info(f"Writing embeddings to: {self.dump_embeddings_path}")
+        
+        try:
+            with tqdm.tqdm(total=len(chunks), desc="Storing in vector DB") as pbar:
+                for i in range(0, len(chunks), batch_size):
+                    batch_chunks = chunks[i:i + batch_size]
+                    batch_vectors = vectors[i:i + batch_size]
                     
-                    point = PointStruct(
-                        id=hash(f"{repo_url}_{i + j}") % (2**63),
-                        vector=vector,
-                        payload={
-                            "text": chunk.text,
-                            "file_path": chunk.file_path,
-                            "start_line": chunk.start_line,
-                            "end_line": chunk.end_line,
-                            "metadata": chunk_metadata
-                        }
-                    )
-                    points.append(point)
-                
-                # Store batch
-                self.vector_store.upsert(points)
-                total_stored += len(batch_chunks)
-                
-                if self.verbose:
-                    logger.info(f"Stored batch {i//batch_size + 1}/{total_batches}: {len(batch_chunks)} chunks (total: {total_stored})")
-                
-                pbar.update(len(batch_chunks))
-                
-                if progress_callback:
-                    progress = 0.7 + (0.3 * (i + batch_size) / len(chunks))
-                    progress_callback(f"Storing batch {i//batch_size + 1}/{total_batches}...", min(progress, 0.95))
+                    # Create points for this batch
+                    points = []
+                    for j, (chunk, vector) in enumerate(zip(batch_chunks, batch_vectors)):
+                        chunk_metadata = dict(chunk.metadata) if chunk.metadata else {}
+                        chunk_metadata.update({
+                            "repo_url": repo_url,
+                            "repo_info": repo_info,
+                            "chunk_id": i + j
+                        })
+                        
+                        point = PointStruct(
+                            id=hash(f"{repo_url}_{i + j}") % (2**63),
+                            vector=vector,
+                            payload={
+                                "text": chunk.text,
+                                "file_path": chunk.file_path,
+                                "start_line": chunk.start_line,
+                                "end_line": chunk.end_line,
+                                "metadata": chunk_metadata
+                            }
+                        )
+                        points.append(point)
+                    
+                    # Store batch in vector DB
+                    self.vector_store.upsert(points)
+                    total_stored += len(batch_chunks)
+                    
+                    # Dump embeddings to file
+                    if dump_file:
+                        for chunk, vector in zip(batch_chunks, batch_vectors):
+                            data = {
+                                "file": chunk.file_path,
+                                "chunk": chunk.text,
+                                "embedding": vector
+                            }
+                            dump_file.write(json.dumps(data) + '\n')
+                        dump_file.flush()  # Ensure data is written
+                    
+                    if self.verbose:
+                        logger.info(f"Stored batch {i//batch_size + 1}/{total_batches}: {len(batch_chunks)} chunks (total: {total_stored})")
+                    
+                    pbar.update(len(batch_chunks))
+                    
+                    if progress_callback:
+                        progress = 0.7 + (0.3 * (i + batch_size) / len(chunks))
+                        progress_callback(f"Storing batch {i//batch_size + 1}/{total_batches}...", min(progress, 0.95))
+        finally:
+            if dump_file:
+                dump_file.close()
+                logger.info(f"✓ Dumped {len(chunks)} embeddings → {self.dump_embeddings_path}")
     
     def clone_repository(self, repo_url: str, temp_dir: Optional[str] = None) -> str:
         """Clone a GitHub repository."""
@@ -371,11 +365,8 @@ class GitHubExtractor:
             # Embed chunks in optimized batches
             vectors = self._batch_embed_chunks_optimized(chunks, progress_callback)
             
-            # Stream to vector database
+            # Stream to vector database and dump embeddings
             self._stream_to_vector_db(chunks, vectors, repo_url, repo_info, progress_callback)
-            
-            # Write embedding dump
-            self._write_embeddings_dump()
             
             elapsed_time = time.time() - start_time
             logger.info(f"Analyzed repository {repo_url}: {len(chunks)} chunks stored in {elapsed_time:.2f}s")
@@ -410,9 +401,7 @@ class GitHubExtractor:
                 except subprocess.CalledProcessError as e:
                     logger.warning(f"Failed to clean up {temp_dir}: {e}")
             
-            # Cleanup embedding dump
-            if self.dump_embeddings_path and not self.embeddings_to_dump:
-                logger.warning(f"No embeddings were dumped to {self.dump_embeddings_path}")
+            # Embedding dump is now handled in _stream_to_vector_db
     
     def _analyze_repository_background(self, repo_url: str, 
                                       progress_callback: Optional[Callable] = None) -> Dict:
