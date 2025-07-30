@@ -1,0 +1,12 @@
+{
+  "qdrant_host": "localhost",
+  "qdrant_port": 6333,
+  "ollama_host": "localhost",
+  "ollama_port": 11434,
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "embedding_model": "BAAI/bge-small-en",
+  "embedding_dimension": 384,
+  "collection_name": "42_chunks",
+  "log_level": "INFO"
+}
