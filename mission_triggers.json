@@ -1,0 +1,152 @@
+[
+  {
+    "id": "trigger_earthquake",
+    "name": "Earthquake Response",
+    "trigger_type": "keyword",
+    "trigger_value": "earthquake",
+    "priority": 1,
+    "actions": [
+      "dispatch_team",
+      "assess_damage",
+      "coordinate_relief"
+    ],
+    "metadata": {
+      "description": "Activate nearest response team for earthquake"
+    }
+  },
+  {
+    "id": "trigger_hurricane",
+    "name": "Hurricane Response",
+    "trigger_type": "keyword",
+    "trigger_value": "hurricane",
+    "priority": 1,
+    "actions": [
+      "deploy_basecamp",
+      "notify_teams",
+      "update_inventory"
+    ],
+    "metadata": {
+      "description": "Pre-stage GFP assets before landfall"
+    }
+  },
+  {
+    "id": "trigger_wildfire",
+    "name": "Wildfire Response",
+    "trigger_type": "keyword",
+    "trigger_value": "wildfire",
+    "priority": 1,
+    "actions": [
+      "deploy_fire_team",
+      "evacuation_support",
+      "air_quality_monitor"
+    ],
+    "metadata": {
+      "description": "Deploy fire response and evacuation support"
+    }
+  },
+  {
+    "id": "trigger_flood",
+    "name": "Flood Response",
+    "trigger_type": "keyword",
+    "trigger_value": "flood",
+    "priority": 1,
+    "actions": [
+      "deploy_water_rescue",
+      "distribute_supplies",
+      "coordinate_shelters"
+    ],
+    "metadata": {
+      "description": "Deploy water rescue and supply distribution"
+    }
+  },
+  {
+    "id": "trigger_famine",
+    "name": "Famine Response",
+    "trigger_type": "keyword",
+    "trigger_value": "famine",
+    "priority": 1,
+    "actions": [
+      "mobilize_food_aid",
+      "coordinate_logistics",
+      "monitor_situation"
+    ],
+    "metadata": {
+      "description": "Deploy food distribution network"
+    }
+  },
+  {
+    "id": "trigger_outbreak",
+    "name": "Disease Outbreak Response",
+    "trigger_type": "keyword",
+    "trigger_value": "outbreak",
+    "priority": 1,
+    "actions": [
+      "deploy_medical_team",
+      "coordinate_healthcare",
+      "track_spread"
+    ],
+    "metadata": {
+      "description": "Activate medical response protocol"
+    }
+  },
+  {
+    "id": "trigger_disaster",
+    "name": "General Disaster Response",
+    "trigger_type": "keyword",
+    "trigger_value": "disaster",
+    "priority": 1,
+    "actions": [
+      "assess_situation",
+      "deploy_teams",
+      "coordinate_relief"
+    ],
+    "metadata": {
+      "description": "General disaster response protocol"
+    }
+  },
+  {
+    "id": "trigger_emergency",
+    "name": "Emergency Response",
+    "trigger_type": "keyword",
+    "trigger_value": "emergency",
+    "priority": 1,
+    "actions": [
+      "activate_protocol",
+      "deploy_assets",
+      "notify_stakeholders"
+    ],
+    "metadata": {
+      "description": "Emergency response activation"
+    }
+  },
+  {
+    "id": "trigger_crisis",
+    "name": "Crisis Response",
+    "trigger_type": "keyword",
+    "trigger_value": "crisis",
+    "priority": 1,
+    "actions": [
+      "crisis_assessment",
+      "resource_mobilization",
+      "stakeholder_coordination"
+    ],
+    "metadata": {
+      "description": "Crisis response and resource mobilization"
+    }
+  },
+  {
+    "id": "trigger_evacuation",
+    "name": "Evacuation Response",
+    "trigger_type": "keyword",
+    "trigger_value": "evacuation",
+    "priority": 1,
+    "actions": [
+      "coordinate_evacuation",
+      "provide_transport",
+      "establish_shelters"
+    ],
+    "metadata": {
+      "description": "Evacuation coordination and shelter establishment"
+    }
+  }
+]

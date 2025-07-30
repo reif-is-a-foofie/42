@@ -43,6 +43,10 @@ class EventType(Enum):
     SYSTEM_STARTUP = "system.startup"
     SYSTEM_SHUTDOWN = "system.shutdown"
     HEALTH_CHECK = "health.check"
+    
+    # Knowledge engine events
+    KNOWLEDGE_TRIGGER = "knowledge.trigger"
+    KNOWLEDGE_DOCUMENT = "knowledge.document"
 
 
 @dataclass

@@ -23,6 +23,18 @@ from .webhook_handlers import (
     GenericWebhookHandler,
     WebhookManager
 )
+from .knowledge_engine import (
+    KnowledgeEngine,
+    KnowledgeSource,
+    KnowledgeEvent,
+    KnowledgeDocument,
+    SourceType,
+    DomainType,
+    TriggerType,
+    RSSFetcher,
+    APIFetcher
+)
+from .mission_config import MISSION_CONFIG
 from .events import Event, EventType
 
 __all__ = [
@@ -37,6 +49,16 @@ __all__ = [
     'GitHubWebhookHandler',
     'GenericWebhookHandler',
     'WebhookManager',
+    'KnowledgeEngine',
+    'KnowledgeSource',
+    'KnowledgeEvent',
+    'KnowledgeDocument',
+    'SourceType',
+    'DomainType',
+    'TriggerType',
+    'RSSFetcher',
+    'APIFetcher',
+    'MISSION_CONFIG',
     'Event',
     'EventType'
 ] 

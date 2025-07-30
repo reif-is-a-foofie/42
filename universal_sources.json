@@ -1,0 +1,50 @@
+[
+  {
+    "id": "universal_rss_news",
+    "name": "Universal News Feed",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://feeds.bbci.co.uk/news/rss.xml",
+    "frequency": "5min",
+    "parser": "xml",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Universal news monitoring"
+    }
+  },
+  {
+    "id": "universal_api_weather",
+    "name": "Universal Weather API",
+    "type": "api",
+    "domain": "weather",
+    "url": "https://api.weather.gov/alerts/active",
+    "frequency": "5min",
+    "parser": "json",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Universal weather monitoring",
+      "headers": {
+        "Accept": "application/geo+json"
+      }
+    }
+  },
+  {
+    "id": "source_usgs_earthquakes",
+    "name": "USGS Earthquakes",
+    "type": "rss",
+    "domain": "geospatial",
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.atom",
+    "frequency": "5min",
+    "parser": "rss",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Real-time earthquake monitoring"
+    }
+  }
+]

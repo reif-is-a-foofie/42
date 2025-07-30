@@ -14,6 +14,8 @@ from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
 from .api import run_server
+from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
+from .un.redis_bus import RedisBus
 
 app = typer.Typer()
 console = Console()
@@ -409,6 +411,188 @@ def purge():
         except Exception as e:
             console.print(f"[red]✗[/red] Failed to purge data: {e}")
             raise typer.Exit(1)
+
+
+@app.command()
+def knowledge_start():
+    """Start the universal knowledge engine."""
+    try:
+        import asyncio
+        from .un.knowledge_engine import KnowledgeEngine
+        from .un.redis_bus import RedisBus
+        
+        console.print("[bold]Starting Universal Knowledge Engine...[/bold]")
+        
+        async def run_knowledge_engine():
+            redis_bus = RedisBus()
+            engine = KnowledgeEngine(redis_bus)
+            
+            # Load sources from file if exists
+            import json
+            import os
+            
+            if os.path.exists("universal_sources.json"):
+                with open("universal_sources.json", "r") as f:
+                    sources_data = json.load(f)
+                    for item in sources_data:
+                        source = KnowledgeSource.from_dict(item)
+                        engine.add_source(source)
+                        console.print(f"  [green]✓[/green] Loaded: {source.name}")
+            
+            console.print(f"\n[bold]Monitoring {len(engine.sources)} sources...[/bold]")
+            console.print("Press Ctrl+C to stop")
+            
+            await engine.start_monitoring(interval_seconds=300)
+        
+        asyncio.run(run_knowledge_engine())
+        
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Knowledge engine stopped[/yellow]")
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to start knowledge engine: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def knowledge_add(
+    name: str = typer.Argument(..., help="Source name"),
+    url: str = typer.Argument(..., help="Source URL"),
+    source_type: str = typer.Argument(..., help="Source type (rss, api, github)"),
+    domain: str = typer.Argument(..., help="Domain (weather, medical, finance, research, etc.)"),
+    description: str = typer.Option("", "--description", "-d", help="Description")
+):
+    """Add a knowledge source to the universal engine."""
+    try:
+        import json
+        import os
+        
+        # Load existing sources
+        sources = []
+        if os.path.exists("universal_sources.json"):
+            with open("universal_sources.json", "r") as f:
+                sources_data = json.load(f)
+                for item in sources_data:
+                    sources.append(KnowledgeSource.from_dict(item))
+        
+        # Create new source
+        source_id = f"source_{name.lower().replace(' ', '_')}"
+        new_source = KnowledgeSource(
+            id=source_id,
+            name=name,
+            type=SourceType(source_type.lower()),
+            domain=DomainType(domain.lower()),
+            url=url,
+            frequency="5min",
+            parser=source_type.lower(),
+            active=True,
+            metadata={"description": description}
+        )
+        
+        # Add to list
+        sources.append(new_source)
+        
+        # Save back to file
+        data = [source.to_dict() for source in sources]
+        with open("universal_sources.json", "w") as f:
+            json.dump(data, f, indent=2)
+        
+        console.print(f"[green]✓[/green] Added source: {name}")
+        console.print(f"   ID: {source_id}")
+        console.print(f"   Type: {source_type}")
+        console.print(f"   Domain: {domain}")
+        console.print(f"   URL: {url}")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to add source: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def knowledge_list():
+    """List all knowledge sources."""
+    try:
+        import json
+        import os
+        
+        if not os.path.exists("universal_sources.json"):
+            console.print("[yellow]No sources found. Add some with: 42 knowledge-add[/yellow]")
+            return
+        
+        with open("universal_sources.json", "r") as f:
+            sources_data = json.load(f)
+        
+        console.print("[bold]Knowledge Sources:[/bold]")
+        console.print("=" * 60)
+        
+        for item in sources_data:
+            status = "[green]Active[/green]" if item.get("active", True) else "[red]Inactive[/red]"
+            console.print(f"{item['name']} ({item['id']})")
+            console.print(f"  Type: {item['type']}")
+            console.print(f"  Domain: {item['domain']}")
+            console.print(f"  URL: {item['url']}")
+            console.print(f"  Status: {status}")
+            console.print()
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to list sources: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def knowledge_test(
+    source_id: str = typer.Argument(..., help="Source ID to test")
+):
+    """Test a knowledge source."""
+    try:
+        import json
+        import os
+        import asyncio
+        
+        if not os.path.exists("universal_sources.json"):
+            console.print("[red]No sources found[/red]")
+            return
+        
+        with open("universal_sources.json", "r") as f:
+            sources_data = json.load(f)
+        
+        # Find the source
+        source_data = None
+        for item in sources_data:
+            if item["id"] == source_id:
+                source_data = item
+                break
+        
+        if not source_data:
+            console.print(f"[red]Source not found: {source_id}[/red]")
+            return
+        
+        source = KnowledgeSource.from_dict(source_data)
+        console.print(f"[bold]Testing source: {source.name}[/bold]")
+        
+        async def test_source():
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                if source.type == SourceType.RSS:
+                    from .un.knowledge_engine import RSSFetcher
+                    fetcher = RSSFetcher(session)
+                elif source.type == SourceType.API:
+                    from .un.knowledge_engine import APIFetcher
+                    fetcher = APIFetcher(session)
+                else:
+                    console.print(f"[red]No fetcher for type: {source.type}[/red]")
+                    return
+                
+                documents = await fetcher.fetch(source)
+                console.print(f"[green]✓[/green] Fetched {len(documents)} documents")
+                
+                for i, doc in enumerate(documents[:3]):  # Show first 3
+                    console.print(f"  {i+1}. {doc.content[:100]}...")
+        
+        asyncio.run(test_source())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to test source: {e}")
+        raise typer.Exit(1)
 
 
 def main():
