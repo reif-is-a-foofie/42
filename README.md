@@ -4,12 +4,31 @@ A sophisticated digital organism designed for intelligent code analysis, queryin
 
 ## 🚀 Quick Start
 
+### **Option 1: Using Setup Script (Recommended)**
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+./setup.sh install
 
 # Start services
-docker-compose up -d
+./setup.sh start
+
+# Create system
+./setup.sh create
+
+# Extract GitHub repository
+python3 -m 42 extract-github https://github.com/user/repo
+
+# Ask questions
+python3 -m 42 ask --question "How does this code work?"
+```
+
+### **Option 2: Manual Commands**
+```bash
+# Install dependencies
+pip install -r .config/requirements.txt
+
+# Start services
+docker-compose -f .config/docker-compose.yml up -d
 
 # Create system
 python3 -m 42 create
@@ -67,10 +86,13 @@ python3 -m 42 ask --question "How does this code work?"
 │   ├── TASKS.md          # Implementation tasks
 │   ├── SETUP.md          # Setup instructions
 │   └── 42_UN_PLAN.md    # 42.un implementation plan
-├── requirements.txt       # Python dependencies
-├── setup.py              # Package installation
-├── docker-compose.yml    # Service orchestration
-└── .cursor-rules         # Development guidelines
+├── .config/               # Configuration files (hidden)
+│   ├── requirements.txt   # Python dependencies
+│   ├── setup.py          # Package installation
+│   ├── docker-compose.yml # Service orchestration
+│   └── .cursor-rules     # Development guidelines
+├── setup.sh              # Easy setup script
+└── README.md             # Project overview
 ```
 
 ## 🎯 Core Features
