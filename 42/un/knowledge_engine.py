@@ -472,21 +472,12 @@ class KnowledgeEngine:
             doc.vector_id = f"doc_{content_hash}"
             
             # Store in Redis for now
-            if hasattr(self.redis_bus.publish_event, '__call__'):
-                await self.redis_bus.publish_event(Event(
-                    event_type=EventType.KNOWLEDGE_DOCUMENT,
-                    data=doc.to_dict(),
-                    timestamp=datetime.now(timezone.utc),
-                    source="knowledge_engine"
-                ))
-            else:
-                # Fallback for non-async Redis bus
-                self.redis_bus.publish_event(Event(
-                    event_type=EventType.KNOWLEDGE_DOCUMENT,
-                    data=doc.to_dict(),
-                    timestamp=datetime.now(timezone.utc),
-                    source="knowledge_engine"
-                ))
+            self.redis_bus.publish_event(Event(
+                event_type=EventType.KNOWLEDGE_DOCUMENT,
+                data=doc.to_dict(),
+                timestamp=datetime.now(timezone.utc),
+                source="knowledge_engine"
+            ))
         
         logger.info(f"Stored {len(documents)} documents in vector store")
     
