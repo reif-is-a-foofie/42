@@ -481,7 +481,6 @@ class KnowledgeEngine:
         try:
             # Prepare documents for vectorization
             texts = []
-            points = []
             
             for doc in documents:
                 # Generate vector ID
@@ -491,12 +490,17 @@ class KnowledgeEngine:
                 # Prepare text for embedding
                 text = doc.content[:1000]  # Limit to first 1000 chars for embedding
                 texts.append(text)
-                
-                # Create Qdrant point structure
-                from qdrant_client.models import PointStruct
+            
+            # Generate embeddings using existing EmbeddingEngine
+            embeddings = self.embedding_engine.embed_text_batch(texts)
+            
+            # Create Qdrant points with embeddings
+            from qdrant_client.models import PointStruct
+            points = []
+            for i, doc in enumerate(documents):
                 point = PointStruct(
                     id=doc.vector_id,
-                    vector=None,  # Will be set after embedding
+                    vector=embeddings[i],  # Set embedding directly
                     payload={
                         "text": doc.content,
                         "source_id": doc.source_id,
@@ -506,13 +510,6 @@ class KnowledgeEngine:
                     }
                 )
                 points.append(point)
-            
-            # Generate embeddings using existing EmbeddingEngine
-            embeddings = self.embedding_engine.embed_text_batch(texts)
-            
-            # Update points with embeddings
-            for i, point in enumerate(points):
-                point.vector = embeddings[i]
             
             # Store in vector database using existing VectorStore
             self.vector_store.upsert(points)
