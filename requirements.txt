@@ -19,6 +19,12 @@ python-dotenv==1.0.1
 numpy<2.0.0
 huggingface-hub<0.20.0
 
+# 42.un dependencies
+watchdog==3.0.0
+feedparser==6.0.10
+aiohttp==3.9.1
+celery==5.3.4
+
 # Development dependencies
 pytest==8.0.0
 pytest-asyncio==0.23.5
