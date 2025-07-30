@@ -26,7 +26,7 @@ prefer_pure_functions = true
 prefer_immutable_dataclasses = true
 
 # CLI & API Consistency
-cli_prefix = "alexandrian"
+cli_prefix = "42"
 cli_commands_must_be = ["single verb", "lowercase", "idempotent"]
 api_prefix = "/"
 match_prd_endpoints = true
@@ -41,7 +41,7 @@ test_style = "pytest"
 use_fixture_autodiscovery = true
 
 # Config & Constants
-use_config_keys_from = "alexandrian.config.json"
+use_config_keys_from = "42.config.json"
 no_hardcoded_constants = true
 no_hardcoded_ports = true
 prefer_env_vars_for_secrets = true

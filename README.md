@@ -1,71 +1,40 @@
-# Alexandrian
+# 42
 
-Alexandrian is a zero-cloud, open-source Retrieval Augmented Generation (RAG) framework for local codebases and documents. It embeds, clusters and searches your files entirely offline, powering local Q&A via an Ollama-hosted LLM. Alexandrian exposes both a CLI and FastAPI backend so you can ingest repositories, query them, and build automations without any external services.
+42 is an autonomous, self-learning AI system.
+It ingests, compresses, and exploits knowledge to reason and act.
+The goal is a local loop of perception, memory, and morally aligned execution.
 
-## Installation
-
-Alexandrian installs everything it needs, including Docker images and Ollama models.
-
-```bash
-# bootstrap a project
-npx alexandrian create
+```
+Sensory -> Reflex -> Brain -> Memory -> Muscles -> Soul
+    |        |        |       |         |        |
+42.un    Queue    42.deux  DB    Actions   Conscience
 ```
 
-This command installs Docker and Ollama if missing, pulls the default `mistral` and `bge-small-en` models, and generates `alexandrian.config.json` with sensible defaults.
+### Self-Tuning Embeddings Subsystem
 
-### Requirements
+Classical (Mistral/LoRA) → Quantum (PennyLane + CUDA-Q) → Alexandrian Memory → RL Feedback → Self-tuning loop.
+Uses PEFT, Triplet Learning, and RLHF for continuous fine-tuning. Embedding refinement drives smarter quantum reasoning and symbolic alignment.
 
-- Docker
-- Node.js (for `npx`)
-- Python 3.11+
+## Version Roadmap
 
-After running `create`, activate your environment and install Python dependencies:
+- **42.zéro** – baseline CLI/API with vector memory
+- **42.un** – reflex loop via Redis and automated ingestion
+- **42.deux** – Bayesian optimization and knowledge graphs
+- **42.trois** – autonomous reinforcement and continuous learning
+- **42.quatre** – multi-agent orchestration and contextual pruning
+
+## Quick Start
+
+Install the core dependencies (Redis, Qdrant, HDBSCAN, BoTorch, PennyLane, CUDA-Q, RLlib) and then:
 
 ```bash
 pip install -r requirements.txt
+42          # prints a welcome message with setup tips
+42 start    # launches the API and vector store
+42 up       # alternative foreground start
+42 e=mc^2   # example one-liner
+42 import ./src
+42 ask "How does the server start?"
 ```
 
-## Quickstart
-
-```bash
-# index your source folder
-alexandrian import ./src
-
-# ask a question
-alexandrian ask "How do we start the server?"
-```
-
-Other commands include `recluster`, `embed --text "..."`, `purge`, and `status`.
-
-## Development Workflow
-
-To keep the code base consistent run these commands before committing:
-
-```bash
-# format and lint
-ruff .
-black .
-
-# run the tests
-pytest -q
-```
-
-Type hints are required for all new functions. Include docstrings that explain
-arguments and return values so team members and code generation tools can easily
-understand the purpose of each module.
-
-## Configuration
-
-`alexandrian.config.json` stores model paths, ports, embedding dimensions and clustering parameters. Edit this file to point to custom models or tweak HDBSCAN settings.
-
-## Extending
-
-Alexandrian is modular. Swap out the embedding model, plug in a different vector database, or build additional FastAPI routes. The CLI uses the same API endpoints so extensions automatically benefit from backend updates.
-
-## Screenshot
-
-![Placeholder screenshot](docs/screenshot.png)
-
-## License
-
-MIT
+See `TASKS.md` for the detailed development plan.

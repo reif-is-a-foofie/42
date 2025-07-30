@@ -1,9 +1,9 @@
 # Implementation Tasks
 
-This document expands the PRD into concrete development steps for each component. Follow these tasks sequentially when building Alexandrian.
+This document expands the PRD into concrete development steps for each component. Follow these tasks sequentially when building 42.
 
 ## System Overview
-Alexandrian consists of several cooperating modules, each built on a stable
+42 consists of several cooperating modules, each built on a stable
 open‑source library:
 
 1. **Embedding Engine** – turns text into numeric vectors using a local model.
@@ -33,7 +33,7 @@ Leverage these proven projects and pin their versions in `requirements.txt`:
 | CLI                | `typer`                                 | `0.12.3` |
 | API                | `fastapi`                               | `0.110.1` |
 
-Wrap each library behind an interface in `alexandrian` so the rest of the
+Wrap each library behind an interface in `42` so the rest of the
 codebase never calls these dependencies directly.
 
 Keep this picture in mind while you work; each task below maps back to one of these pieces.
@@ -49,12 +49,12 @@ New engineers should set up a Python 3.11 virtual environment and install the de
 Even small modules should have at least one test so we know they work as expected.
 
 ## Repository Setup
-1. Scaffold a Python package named `alexandrian` with submodules:
+1. Scaffold a Python package named `42` with submodules:
    `embedding.py`, `vector_store.py`, `cluster.py`, `prompt.py`, `llm.py`,
    `chunker.py`, `cli.py`, `api.py`, and `config.py`.
 2. Create `requirements.txt` enumerating all dependencies listed in the PRD with
    **pinned versions** so updates are predictable.
-3. Provide a starter `alexandrian.config.json` with default model names, ports
+3. Provide a starter `42.config.json` with default model names, ports
    and embedding dimensions.
 4. Define common data structures in `interfaces.py` to keep module APIs
    consistent.
@@ -65,7 +65,7 @@ Even small modules should have at least one test so we know they work as expecte
 - Wrap the library in `embedding.py` so callers use a stable API.
    `embedding.py`, `vector_store.py`, `cluster.py`, `prompt.py`, `llm.py`, `chunker.py`, `cli.py`, `api.py`, and `config.py`.
 2. Create `requirements.txt` enumerating all dependencies listed in the PRD (FastAPI, sentence-transformers, qdrant-client, hdbscan, etc.).
-3. Provide a starter `alexandrian.config.json` with default model names, ports and embedding dimensions.
+3. Provide a starter `42.config.json` with default model names, ports and embedding dimensions.
 4. Configure linting and formatters (`black` + `ruff`).
 
 ## Embedding Engine
@@ -74,17 +74,17 @@ Even small modules should have at least one test so we know they work as expecte
   - `embed_text(text: str) -> list[float]`
   - `embed_text_batch(texts: list[str]) -> list[list[float]]`
 - Add docstrings describing the expected input and output.
-- Expose a CLI command `alexandrian embed --text TEXT` that prints the vector as JSON.
+- Expose a CLI command `42 embed --text TEXT` that prints the vector as JSON.
 - Create tests in `tests/test_embedding.py` asserting that the returned vector has the correct dimension and datatype.
 
 ## Vector Store (Qdrant)
 - Supply a Docker Compose file that launches Qdrant.
-- During `alexandrian create`, start the container and wait for readiness.
+- During `42 create`, start the container and wait for readiness.
 - Wrap `qdrant-client` inside `vector_store.py` exposing
   `upsert`, `search`, `update_payload`, and `get_all_vectors` so callers never
   import the library directly.
 - Implement wrapper methods `upsert`, `search`, `update_payload`, and `get_all_vectors`.
-- Read connection info from `alexandrian.config.json`.
+- Read connection info from `42.config.json`.
 - Add tests using a temporary Qdrant instance to verify inserts and searches.
 - Document each method with type hints and explain what parameters mean.
 
@@ -94,7 +94,7 @@ Even small modules should have at least one test so we know they work as expecte
   `cluster.py` so future upgrades are isolated.
 - Build `recluster_vectors()` that loads all vectors, runs HDBSCAN and updates each payload with `cluster_id`.
 - Optionally generate a UMAP plot saved under `docs/cluster.png`.
-- Provide CLI command `alexandrian recluster` and FastAPI endpoint `/recluster`.
+- Provide CLI command `42 recluster` and FastAPI endpoint `/recluster`.
 - Include unit tests that feed a small set of vectors and assert clusters are returned.
 
 ## Prompt Builder
@@ -118,7 +118,7 @@ Even small modules should have at least one test so we know they work as expecte
 - Parse Python files with `ast` to split by function or class.
 - Split Markdown files by heading level.
 - Emit metadata: file path, start/end lines and cluster ID.
-- Implement `alexandrian import PATH` to ingest a folder recursively.
+- Implement `42 import PATH` to ingest a folder recursively.
 - Provide tests covering Python and Markdown splitting so future changes do not break chunk generation.
 
 ## CLI Interface
@@ -137,20 +137,20 @@ Even small modules should have at least one test so we know they work as expecte
 - Keep route handlers thin and delegate to the wrapper modules so API logic stays minimal.
 
 ## Config Layer
-- Generate `alexandrian.config.json` during `create` if missing.
+- Generate `42.config.json` during `create` if missing.
 - Provide a `load_config()` helper returning a typed dataclass.
 - Allow overriding values via environment variables.
 - Add tests that load a temporary config file and ensure values map to the dataclass correctly.
 - Record dependency versions in the config so upgrades can be audited.
 
 ## Installer
-- `npx alexandrian create` installs Docker and Ollama if absent, pulls the default models and Python dependencies, then launches Qdrant and the API server.
+- `npx 42 create` installs Docker and Ollama if absent, pulls the default models and Python dependencies, then launches Qdrant and the API server.
 - Print next steps after setup completes.
 - Provide installation logs so users can troubleshoot if something fails.
 - Verify that pinned versions from `requirements.txt` are installed.
 
 ## Postinstall Verification
-- Implement `alexandrian status` to check Qdrant and Ollama health, report model names, cluster count and total chunks.
+- Implement `42 status` to check Qdrant and Ollama health, report model names, cluster count and total chunks.
 - Run a small embedding and LLM request to confirm the full pipeline works.
 - Document common errors and where to look in the logs.
 - Ensure the command also reports the versions of all pinned dependencies.
