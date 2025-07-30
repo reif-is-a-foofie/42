@@ -9,16 +9,24 @@ This module implements Phase un of the 42 masterplan:
 """
 
 from .redis_bus import RedisBus
-from .source_scanner import SourceScanner
-from .task_prioritizer import TaskPrioritizer
-from .background_worker import BackgroundWorker
+from .source_scanner import (
+    SourceScanner,
+    GitHubScanner,
+    FileSystemScanner,
+    RSSFeedScanner,
+    APIEndpointScanner,
+    SourceScannerOrchestrator
+)
 from .events import Event, EventType
 
 __all__ = [
     'RedisBus',
-    'SourceScanner', 
-    'TaskPrioritizer',
-    'BackgroundWorker',
+    'SourceScanner',
+    'GitHubScanner',
+    'FileSystemScanner',
+    'RSSFeedScanner',
+    'APIEndpointScanner',
+    'SourceScannerOrchestrator',
     'Event',
     'EventType'
 ] 
