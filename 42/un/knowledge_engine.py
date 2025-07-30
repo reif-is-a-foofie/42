@@ -392,11 +392,8 @@ class KnowledgeTrigger:
                 source=f"knowledge_engine:{event.id}"
             )
             
-            if hasattr(self.redis_bus.publish_event, '__call__'):
-                await self.redis_bus.publish_event(redis_event)
-            else:
-                # Fallback for non-async Redis bus
-                self.redis_bus.publish_event(redis_event)
+            # Publish to Redis bus (non-async)
+            self.redis_bus.publish_event(redis_event)
             logger.info(f"Fired trigger: {event.name} for document: {document.source_id}")
 
 
