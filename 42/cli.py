@@ -638,6 +638,61 @@ def test(
         raise typer.Exit(1)
 
 
+@app.command()
+def search(
+    query: str = typer.Argument(..., help="Search query"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Number of results to return")
+):
+    """Search the knowledge base."""
+    try:
+        import asyncio
+        from .un.knowledge_engine import KnowledgeEngine
+        from .un.redis_bus import RedisBus
+        
+        console.print(f"[bold]Searching knowledge base for: {query}[/bold]")
+        
+        async def search_knowledge():
+            redis_bus = RedisBus()
+            engine = KnowledgeEngine(redis_bus)
+            
+            # Load sources from file if exists
+            import json
+            import os
+            
+            if os.path.exists("universal_sources.json"):
+                with open("universal_sources.json", "r") as f:
+                    sources_data = json.load(f)
+                    for item in sources_data:
+                        from .un.knowledge_engine import KnowledgeSource
+                        source = KnowledgeSource.from_dict(item)
+                        engine.add_source(source)
+            
+            # Search the knowledge base
+            results = engine.search_knowledge(query, limit=limit)
+            
+            if not results:
+                console.print("[yellow]No results found[/yellow]")
+                return
+            
+            console.print(f"\n[bold]Found {len(results)} results:[/bold]")
+            console.print("=" * 80)
+            
+            for i, result in enumerate(results, 1):
+                score = result.get("score", 0)
+                source = result.get("source_id", "unknown")
+                content = result.get("content", "")[:200] + "..." if len(result.get("content", "")) > 200 else result.get("content", "")
+                
+                console.print(f"{i}. [bold]{source}[/bold] (score: {score:.3f})")
+                console.print(f"   {content}")
+                console.print()
+        
+        asyncio.run(search_knowledge())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to search knowledge base: {e}")
+        raise typer.Exit(1)
+
+
 def main():
     """Main CLI entry point."""
     app()

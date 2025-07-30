@@ -18,6 +18,8 @@ from loguru import logger
 
 from .events import Event, EventType
 from .redis_bus import RedisBus
+from ..embedding import EmbeddingEngine
+from ..vector_store import VectorStore
 
 
 class SourceType(Enum):
@@ -411,6 +413,14 @@ class KnowledgeEngine:
             SourceType.RSS: RSSFetcher,
             SourceType.API: APIFetcher,
         }
+        
+        # Initialize existing 42.zero tools
+        self.embedding_engine = EmbeddingEngine()
+        self.vector_store = VectorStore(collection_name="42_knowledge")
+        
+        # Ensure collection exists
+        vector_size = self.embedding_engine.get_dimension()
+        self.vector_store.create_collection(vector_size)
     
     def add_source(self, source: KnowledgeSource):
         """Add a knowledge source."""
@@ -464,22 +474,98 @@ class KnowledgeEngine:
                     logger.error(f"Error processing source {source.name}: {e}")
     
     async def _store_documents(self, documents: List[KnowledgeDocument]):
-        """Store documents in vector database."""
-        # TODO: Integrate with existing vector store
-        for doc in documents:
-            # Generate vector ID
-            content_hash = hashlib.md5(doc.content.encode()).hexdigest()
-            doc.vector_id = f"doc_{content_hash}"
+        """Store documents in vector database using existing 42.zero tools."""
+        if not documents:
+            return
             
-            # Store in Redis for now
-            self.redis_bus.publish_event(Event(
-                event_type=EventType.KNOWLEDGE_DOCUMENT,
-                data=doc.to_dict(),
-                timestamp=datetime.now(timezone.utc),
-                source="knowledge_engine"
-            ))
-        
-        logger.info(f"Stored {len(documents)} documents in vector store")
+        try:
+            # Prepare documents for vectorization
+            texts = []
+            points = []
+            
+            for doc in documents:
+                # Generate vector ID
+                content_hash = hashlib.md5(doc.content.encode()).hexdigest()
+                doc.vector_id = f"doc_{content_hash}"
+                
+                # Prepare text for embedding
+                text = doc.content[:1000]  # Limit to first 1000 chars for embedding
+                texts.append(text)
+                
+                # Create Qdrant point structure
+                from qdrant_client.models import PointStruct
+                point = PointStruct(
+                    id=doc.vector_id,
+                    vector=None,  # Will be set after embedding
+                    payload={
+                        "text": doc.content,
+                        "source_id": doc.source_id,
+                        "timestamp": doc.timestamp.isoformat(),
+                        "metadata": doc.metadata,
+                        "vector_id": doc.vector_id
+                    }
+                )
+                points.append(point)
+            
+            # Generate embeddings using existing EmbeddingEngine
+            embeddings = self.embedding_engine.embed_text_batch(texts)
+            
+            # Update points with embeddings
+            for i, point in enumerate(points):
+                point.vector = embeddings[i]
+            
+            # Store in vector database using existing VectorStore
+            self.vector_store.upsert(points)
+            
+            # Also publish to Redis for event system
+            for doc in documents:
+                self.redis_bus.publish_event(Event(
+                    event_type=EventType.KNOWLEDGE_DOCUMENT,
+                    data=doc.to_dict(),
+                    timestamp=datetime.now(timezone.utc),
+                    source="knowledge_engine"
+                ))
+            
+            logger.info(f"Stored {len(documents)} documents in vector store with embeddings")
+            
+        except Exception as e:
+            logger.error(f"Failed to store documents in vector store: {e}")
+            # Fallback to Redis only
+            for doc in documents:
+                self.redis_bus.publish_event(Event(
+                    event_type=EventType.KNOWLEDGE_DOCUMENT,
+                    data=doc.to_dict(),
+                    timestamp=datetime.now(timezone.utc),
+                    source="knowledge_engine"
+                ))
+            logger.info(f"Stored {len(documents)} documents in Redis only (fallback)")
+    
+    def search_knowledge(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search the knowledge base using existing vector store."""
+        try:
+            # Generate embedding for query
+            query_embedding = self.embedding_engine.embed_text(query)
+            
+            # Search using existing VectorStore
+            search_results = self.vector_store.search(query_embedding, limit=limit)
+            
+            # Convert to knowledge format
+            knowledge_results = []
+            for result in search_results:
+                knowledge_results.append({
+                    "content": result.text,
+                    "source_id": result.metadata.get("source_id", ""),
+                    "score": result.score,
+                    "timestamp": result.metadata.get("timestamp", ""),
+                    "metadata": result.metadata
+                })
+            
+            logger.info(f"Found {len(knowledge_results)} results for query: {query}")
+            return knowledge_results
+            
+        except Exception as e:
+            logger.error(f"Failed to search knowledge base: {e}")
+            return []
     
     async def start_monitoring(self, interval_seconds: int = 300):
         """Start continuous monitoring."""
