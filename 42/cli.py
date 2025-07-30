@@ -609,17 +609,17 @@ def test(
             console.print(f"[red]Source not found: {source_id}[/red]")
             return
         
+        from .un.knowledge_engine import KnowledgeSource
         source = KnowledgeSource.from_dict(source_data)
         console.print(f"[bold]Testing source: {source.name}[/bold]")
         
         async def test_source():
             import aiohttp
             async with aiohttp.ClientSession() as session:
+                from .un.knowledge_engine import SourceType, RSSFetcher, APIFetcher
                 if source.type == SourceType.RSS:
-                    from .un.knowledge_engine import RSSFetcher
                     fetcher = RSSFetcher(session)
                 elif source.type == SourceType.API:
-                    from .un.knowledge_engine import APIFetcher
                     fetcher = APIFetcher(session)
                 else:
                     console.print(f"[red]No fetcher for type: {source.type}[/red]")
