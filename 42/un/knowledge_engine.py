@@ -18,8 +18,6 @@ from loguru import logger
 
 from .events import Event, EventType
 from .redis_bus import RedisBus
-from ..embedding import EmbeddingEngine
-from ..vector_store import VectorStore
 
 
 class SourceType(Enum):
@@ -411,13 +409,7 @@ class KnowledgeEngine:
             SourceType.API: APIFetcher,
         }
         
-        # Initialize existing 42.zero tools
-        self.embedding_engine = EmbeddingEngine()
-        self.vector_store = VectorStore()  # Use default 42_chunks collection
-        
-        # Ensure collection exists
-        vector_size = self.embedding_engine.get_dimension()
-        self.vector_store.create_collection(vector_size)
+        # Note: Using JobManager for storage instead of direct embedding/vector store access
     
     def add_source(self, source: KnowledgeSource):
         """Add a knowledge source."""
@@ -476,53 +468,37 @@ class KnowledgeEngine:
             return
             
         try:
-            # Convert KnowledgeDocuments to Chunks (42.zero format)
-            from ..interfaces import Chunk
-            from qdrant_client.models import PointStruct
+            # Use existing 42.zero JobManager.import_data functionality
+            from ..job_manager import JobManager
+            import tempfile
+            import os
             
-            chunks = []
+            # Create temporary files for each document (42.zero expects files)
+            temp_files = []
             for doc in documents:
-                # Generate vector ID
-                content_hash = hashlib.md5(doc.content.encode()).hexdigest()
-                doc.vector_id = f"doc_{content_hash}"
-                
-                # Convert to 42.zero Chunk format
-                chunk = Chunk(
-                    text=doc.content,
-                    file_path=f"knowledge_source:{doc.source_id}",
-                    start_line=0,
-                    end_line=0,
-                    metadata={
-                        "source_id": doc.source_id,
-                        "timestamp": doc.timestamp.isoformat(),
-                        "vector_id": doc.vector_id,
-                        **doc.metadata
-                    }
-                )
-                chunks.append(chunk)
+                # Create temporary file with knowledge metadata
+                safe_name = doc.source_id.replace("/", "_").replace(":", "_")[:50]
+                with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{safe_name}.txt', delete=False) as f:
+                    # Add metadata as comments for context
+                    f.write(f"# Source: {doc.source_id}\n")
+                    f.write(f"# URL: {doc.metadata.get('url', 'unknown')}\n") 
+                    f.write(f"# Title: {doc.metadata.get('title', 'unknown')}\n")
+                    f.write(f"# Published: {doc.metadata.get('published', 'unknown')}\n")
+                    f.write(f"# ---\n\n")
+                    f.write(doc.content)
+                    temp_files.append(f.name)
             
-            # Use existing 42.zero embedding and storage (same as import_data command)
-            points = []
-            for i, chunk in enumerate(chunks):
-                # Embed using existing EmbeddingEngine
-                vector = self.embedding_engine.embed_text(chunk.text)
-                
-                # Create point using 42.zero format
-                point = PointStruct(
-                    id=f"knowledge_{i}_{hash(chunk.text)}",
-                    vector=vector,
-                    payload={
-                        "text": chunk.text,
-                        "file_path": chunk.file_path,
-                        "start_line": chunk.start_line,
-                        "end_line": chunk.end_line,
-                        "metadata": chunk.metadata or {}
-                    }
-                )
-                points.append(point)
+            # Use existing 42.zero import_data functionality (handles chunking, embedding, storage)
+            job_manager = JobManager()
+            for temp_file in temp_files:
+                job_manager.import_data(temp_file)
             
-            # Store using existing VectorStore.upsert (same as import_data)
-            self.vector_store.upsert(points)
+            # Clean up temporary files
+            for temp_file in temp_files:
+                try:
+                    os.unlink(temp_file)
+                except:
+                    pass  # Ignore cleanup errors
             
             # Also publish to Redis for event system
             for doc in documents:
@@ -533,10 +509,10 @@ class KnowledgeEngine:
                     source="knowledge_engine"
                 ))
             
-            logger.info(f"Stored {len(documents)} documents using 42.zero import functionality")
+            logger.info(f"Stored {len(documents)} documents using 42.zero import_data functionality")
             
         except Exception as e:
-            logger.error(f"Failed to store documents: {e}")
+            logger.error(f"Failed to store documents using 42.zero import_data: {e}")
             logger.exception("Full traceback:")
             # Fallback to Redis only
             for doc in documents:
@@ -548,32 +524,7 @@ class KnowledgeEngine:
                 ))
             logger.info(f"Stored {len(documents)} documents in Redis only (fallback)")
     
-    def search_knowledge(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search the knowledge base using existing vector store."""
-        try:
-            # Generate embedding for query
-            query_embedding = self.embedding_engine.embed_text(query)
-            
-            # Search using existing VectorStore
-            search_results = self.vector_store.search(query_embedding, limit=limit)
-            
-            # Convert to knowledge format
-            knowledge_results = []
-            for result in search_results:
-                knowledge_results.append({
-                    "content": result.text,
-                    "source_id": result.metadata.get("source_id", ""),
-                    "score": result.score,
-                    "timestamp": result.metadata.get("timestamp", ""),
-                    "metadata": result.metadata
-                })
-            
-            logger.info(f"Found {len(knowledge_results)} results for query: {query}")
-            return knowledge_results
-            
-        except Exception as e:
-            logger.error(f"Failed to search knowledge base: {e}")
-            return []
+    # Removed redundant search_knowledge method - use CLI search command with 42.zero functions instead
     
     async def start_monitoring(self, interval_seconds: int = 300):
         """Start continuous monitoring."""
