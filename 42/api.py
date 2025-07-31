@@ -54,6 +54,21 @@ class StatusResponse(BaseModel):
     embedding_model: str
 
 
+class LearnRequest(BaseModel):
+    name: str
+    url: str
+    source_type: str
+    domain: str
+    description: str = ""
+
+
+class LearnResponse(BaseModel):
+    source_id: str
+    name: str
+    status: str
+    error: Optional[str] = None
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="42 API",

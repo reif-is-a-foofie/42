@@ -481,8 +481,14 @@ def learn(
                     import sys
                     
                     try:
+                        # Get the directory where the CLI module is located
+                        import os
+                        cli_dir = os.path.dirname(os.path.abspath(__file__))
+                        project_root = os.path.dirname(cli_dir)
+                        validate_script = os.path.join(project_root, "validate_rss.py")
+                        
                         result = subprocess.run([
-                            sys.executable, "validate_rss.py", url
+                            sys.executable, validate_script, url
                         ], capture_output=True, text=True, timeout=15)
                         
                         if result.returncode == 0:

@@ -15,6 +15,21 @@
     }
   },
   {
+    "id": "universal_rss_dynomight",
+    "name": "Dynomight Blog",
+    "type": "rss",
+    "domain": "research",
+    "url": "https://dynomight.net/feed.xml",
+    "frequency": "5min",
+    "parser": "xml",
+    "auth_ref": null,
+    "vectorize": true,
+    "active": true,
+    "metadata": {
+      "description": "Dynomight's science and existential angst blog"
+    }
+  },
+  {
     "id": "universal_api_weather",
     "name": "Universal Weather API",
     "type": "api",
