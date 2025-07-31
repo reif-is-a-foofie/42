@@ -9,11 +9,11 @@ import asyncio
 import os
 import hashlib
 import json
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from pathlib import Path
 import aiohttp
 import feedparser
+from typing import Dict, Any, List, Optional, Callable
+from datetime import datetime, timedelta
+from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from loguru import logger
@@ -125,18 +125,20 @@ class GitHubScanner(SourceScanner):
     async def _check_repo_changes(self, repo_url: str, session: aiohttp.ClientSession):
         """Check for changes in a specific repository."""
         # Extract owner and repo from URL
-        parts = repo_url.rstrip('/').split('/')
-        if len(parts) < 2:
-            logger.error(f"Invalid GitHub URL: {repo_url}")
+        if "github.com" in repo_url:
+            parts = repo_url.split("github.com/")[-1].split("/")
+            if len(parts) >= 2:
+                owner, repo = parts[0], parts[1]
+            else:
+                logger.error(f"Invalid GitHub URL format: {repo_url}")
+                return
+        else:
+            logger.error(f"Not a GitHub URL: {repo_url}")
             return
-        
-        owner, repo = parts[-2], parts[-1]
         
         # Get latest commit
         api_url = f"{self.api_base}/repos/{owner}/{repo}/commits"
-        params = {"per_page": 1}
-        
-        async with session.get(api_url, params=params) as response:
+        async with session.get(api_url, params={"per_page": 1}) as response:
             if response.status != 200:
                 logger.error(f"GitHub API error: {response.status}")
                 return
@@ -146,18 +148,18 @@ class GitHubScanner(SourceScanner):
                 return
             
             latest_commit = commits[0]
-            commit_hash = latest_commit["sha"]
-            commit_date = datetime.fromisoformat(latest_commit["commit"]["author"]["date"].replace('Z', '+00:00'))
+            commit_sha = latest_commit["sha"]
+            commit_date = latest_commit["commit"]["author"]["date"]
             
             # Check if this is a new commit
             stored_state = await self._get_stored_state(repo_url)
-            if stored_state and stored_state.get("last_commit") == commit_hash:
+            if stored_state and stored_state.get("last_commit_sha") == commit_sha:
                 return  # No change
             
             # Store new state
             new_state = {
-                "last_commit": commit_hash,
-                "last_commit_date": commit_date.isoformat(),
+                "last_commit_sha": commit_sha,
+                "last_commit_date": commit_date,
                 "last_scan": datetime.now().isoformat()
             }
             await self._store_state(repo_url, new_state)
@@ -165,20 +167,20 @@ class GitHubScanner(SourceScanner):
             # Emit event
             event = create_github_repo_updated_event(
                 repo_url=repo_url,
-                commit_hash=commit_hash,
-                branch="main",  # Default branch
+                commit_sha=commit_sha,
+                commit_message=latest_commit["commit"]["message"],
                 author=latest_commit["commit"]["author"]["name"],
-                message=latest_commit["commit"]["message"]
+                timestamp=commit_date
             )
             
             await self.redis_bus.publish_event(event)
-            logger.info(f"GitHub change detected: {repo_url} -> {commit_hash[:8]}")
+            logger.info(f"GitHub update detected: {repo_url} -> {commit_sha[:8]}")
     
     async def stop(self):
         """Stop the scanner and close session."""
-        await super().stop()
         if self.session and not self.session.closed:
             await self.session.close()
+        await super().stop()
 
 
 class FileSystemScanner(SourceScanner):
@@ -187,9 +189,8 @@ class FileSystemScanner(SourceScanner):
     def __init__(self, redis_bus: RedisBus, config: Dict[str, Any]):
         super().__init__(redis_bus, config)
         self.watch_directories = config.get("filesystem", {}).get("watch_directories", [])
-        self.ignore_patterns = config.get("filesystem", {}).get("ignore_patterns", ["*.tmp", "*.log"])
         self.observer = None
-        self.handler = None
+        self.event_handler = None
     
     async def start(self):
         """Start file system monitoring."""
@@ -199,19 +200,20 @@ class FileSystemScanner(SourceScanner):
     async def _setup_watchers(self):
         """Setup file system watchers."""
         if not self.watch_directories:
-            logger.warning("No directories configured for file system monitoring")
             return
         
-        self.handler = FileSystemEventHandler()
-        self.handler.on_created = self._on_file_created
-        self.handler.on_modified = self._on_file_modified
-        self.handler.on_deleted = self._on_file_deleted
-        
         self.observer = Observer()
+        self.event_handler = FileSystemEventHandler()
         
+        # Set up event handlers
+        self.event_handler.on_created = self._on_file_created
+        self.event_handler.on_modified = self._on_file_modified
+        self.event_handler.on_deleted = self._on_file_deleted
+        
+        # Schedule watchers
         for directory in self.watch_directories:
             if os.path.exists(directory):
-                self.observer.schedule(self.handler, directory, recursive=True)
+                self.observer.schedule(self.event_handler, directory, recursive=True)
                 logger.info(f"Watching directory: {directory}")
             else:
                 logger.warning(f"Directory does not exist: {directory}")
@@ -220,66 +222,46 @@ class FileSystemScanner(SourceScanner):
     
     def _should_ignore_file(self, file_path: str) -> bool:
         """Check if file should be ignored."""
-        path = Path(file_path)
+        ignore_patterns = [
+            ".git", ".svn", ".hg",
+            "__pycache__", ".pyc", ".pyo",
+            ".DS_Store", "Thumbs.db",
+            "*.tmp", "*.temp", "*.log"
+        ]
         
-        # Check ignore patterns
-        for pattern in self.ignore_patterns:
-            if path.match(pattern):
+        for pattern in ignore_patterns:
+            if pattern in file_path:
                 return True
-        
-        # Ignore hidden files
-        if path.name.startswith('.'):
-            return True
-        
-        # Ignore common non-text files
-        binary_extensions = {'.exe', '.dll', '.so', '.dylib', '.bin', '.dat', '.db'}
-        if path.suffix.lower() in binary_extensions:
-            return True
-        
         return False
     
     def _on_file_created(self, event):
         """Handle file creation event."""
-        if event.is_directory or self._should_ignore_file(event.src_path):
-            return
-        
-        asyncio.create_task(self._emit_file_event(event.src_path, "created"))
+        if not event.is_directory and not self._should_ignore_file(event.src_path):
+            asyncio.create_task(self._emit_file_event(event.src_path, "created"))
     
     def _on_file_modified(self, event):
         """Handle file modification event."""
-        if event.is_directory or self._should_ignore_file(event.src_path):
-            return
-        
-        asyncio.create_task(self._emit_file_event(event.src_path, "modified"))
+        if not event.is_directory and not self._should_ignore_file(event.src_path):
+            asyncio.create_task(self._emit_file_event(event.src_path, "modified"))
     
     def _on_file_deleted(self, event):
         """Handle file deletion event."""
-        if event.is_directory or self._should_ignore_file(event.src_path):
-            return
-        
-        asyncio.create_task(self._emit_file_event(event.src_path, "deleted"))
+        if not event.is_directory and not self._should_ignore_file(event.src_path):
+            asyncio.create_task(self._emit_file_event(event.src_path, "deleted"))
     
     async def _emit_file_event(self, file_path: str, event_type: str):
         """Emit file system event."""
         try:
-            # Get file stats
+            # Get file metadata
             stat = os.stat(file_path)
             file_size = stat.st_size
+            modified_time = datetime.fromtimestamp(stat.st_mtime)
             
-            # Only process text files under reasonable size
-            if file_size > 1024 * 1024:  # 1MB limit
-                return
-            
-            event = Event(
-                event_type=EventType.FILE_INGESTED if event_type in ["created", "modified"] else EventType.FILE_DELETED,
-                data={
-                    "file_path": file_path,
-                    "file_size": file_size,
-                    "event_type": event_type,
-                    "timestamp": datetime.now().isoformat()
-                },
-                timestamp=datetime.now(),
-                source="filesystem_scanner"
+            event = create_file_ingested_event(
+                file_path=file_path,
+                event_type=event_type,
+                file_size=file_size,
+                modified_time=modified_time.isoformat()
             )
             
             await self.redis_bus.publish_event(event)
@@ -289,9 +271,8 @@ class FileSystemScanner(SourceScanner):
             logger.error(f"Error emitting file event: {e}")
     
     async def _scan_sources(self):
-        """Periodic scan of file system (backup to real-time events)."""
-        # This is mainly for initial scan and verification
-        # Real-time events are handled by the file system watcher
+        """Scan file system sources (called periodically)."""
+        # This is mainly for initial scan, ongoing monitoring is via watchers
         pass
     
     async def stop(self):
@@ -408,26 +389,23 @@ class APIEndpointScanner(SourceScanner):
             try:
                 await self._check_endpoint_changes(endpoint_config, session)
             except Exception as e:
-                logger.error(f"Error checking endpoint {endpoint_config.get('url', '')}: {e}")
+                logger.error(f"Error checking endpoint {endpoint_config.get('url', 'unknown')}: {e}")
     
     async def _check_endpoint_changes(self, endpoint_config: Dict[str, Any], session: aiohttp.ClientSession):
         """Check for changes in an API endpoint."""
         url = endpoint_config.get("url")
-        method = endpoint_config.get("method", "GET")
-        headers = endpoint_config.get("headers", {})
-        
         if not url:
             return
         
-        # Make request
+        headers = endpoint_config.get("headers", {})
+        method = endpoint_config.get("method", "GET")
+        
         async with session.request(method, url, headers=headers) as response:
             if response.status != 200:
                 logger.error(f"API endpoint error: {response.status}")
                 return
             
             content = await response.text()
-            
-            # Create hash of content for change detection
             content_hash = hashlib.md5(content.encode()).hexdigest()
             
             # Check if content has changed
@@ -448,7 +426,6 @@ class APIEndpointScanner(SourceScanner):
                 event_type=EventType.FILE_INGESTED,  # Reuse for API updates
                 data={
                     "endpoint_url": url,
-                    "method": method,
                     "content_hash": content_hash,
                     "response_size": len(content),
                     "timestamp": datetime.now().isoformat()
@@ -458,7 +435,7 @@ class APIEndpointScanner(SourceScanner):
             )
             
             await self.redis_bus.publish_event(event)
-            logger.info(f"API endpoint change detected: {url}")
+            logger.info(f"API endpoint update detected: {url}")
     
     async def stop(self):
         """Stop the scanner and close session."""
@@ -468,7 +445,7 @@ class APIEndpointScanner(SourceScanner):
 
 
 class SourceScannerOrchestrator:
-    """Orchestrate all source scanners."""
+    """Orchestrates multiple source scanners."""
     
     def __init__(self, redis_bus: RedisBus, config: Dict[str, Any]):
         self.redis_bus = redis_bus
@@ -476,55 +453,32 @@ class SourceScannerOrchestrator:
         self.scanners = []
         self.running = False
     
+    def add_scanner(self, scanner: SourceScanner):
+        """Add a scanner to the orchestrator."""
+        self.scanners.append(scanner)
+    
     async def start(self):
         """Start all scanners."""
-        logger.info("Starting Source Scanner Orchestrator")
+        logger.info("Starting source scanner orchestrator")
         self.running = True
         
-        # Create scanners based on configuration
-        scanners = []
-        
-        if self.config.get("github", {}).get("repos"):
-            scanners.append(GitHubScanner(self.redis_bus, self.config))
-        
-        if self.config.get("filesystem", {}).get("watch_directories"):
-            scanners.append(FileSystemScanner(self.redis_bus, self.config))
-        
-        if self.config.get("rss", {}).get("feeds"):
-            scanners.append(RSSFeedScanner(self.redis_bus, self.config))
-        
-        if self.config.get("api", {}).get("endpoints"):
-            scanners.append(APIEndpointScanner(self.redis_bus, self.config))
-        
-        # Start all scanners
-        for scanner in scanners:
-            self.scanners.append(scanner)
-            asyncio.create_task(scanner.start())
-        
-        logger.info(f"Started {len(scanners)} scanners")
+        # Start all scanners concurrently
+        tasks = [scanner.start() for scanner in self.scanners]
+        await asyncio.gather(*tasks, return_exceptions=True)
     
     async def stop(self):
         """Stop all scanners."""
-        logger.info("Stopping Source Scanner Orchestrator")
+        logger.info("Stopping source scanner orchestrator")
         self.running = False
         
+        # Stop all scanners
         for scanner in self.scanners:
             await scanner.stop()
-        
-        self.scanners.clear()
-        logger.info("All scanners stopped")
     
     def get_status(self) -> Dict[str, Any]:
         """Get status of all scanners."""
         return {
             "running": self.running,
             "scanner_count": len(self.scanners),
-            "scanners": [
-                {
-                    "type": scanner.__class__.__name__,
-                    "running": scanner.running,
-                    "error_count": scanner.error_count
-                }
-                for scanner in self.scanners
-            ]
+            "scanners": [scanner.__class__.__name__ for scanner in self.scanners]
         } 

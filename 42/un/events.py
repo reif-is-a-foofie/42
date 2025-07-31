@@ -149,4 +149,36 @@ def create_task_completed_event(task_id: str, task_type: str, duration: float, *
         },
         timestamp=datetime.utcnow(),
         source="background_worker"
+    )
+
+
+def create_source_discovered_event(url: str, source_type: str, domain: str, **kwargs) -> Event:
+    """Create a source discovered event."""
+    return Event(
+        event_type=EventType.KNOWLEDGE_DOCUMENT,
+        data={
+            "url": url,
+            "source_type": source_type,
+            "domain": domain,
+            "discovery_method": "autonomous_scanner",
+            **kwargs
+        },
+        timestamp=datetime.utcnow(),
+        source="autonomous_scanner"
+    )
+
+
+def create_crawl_completed_event(url: str, pages_crawled: int, sources_found: int, **kwargs) -> Event:
+    """Create a crawl completed event."""
+    return Event(
+        event_type=EventType.KNOWLEDGE_DOCUMENT,
+        data={
+            "url": url,
+            "pages_crawled": pages_crawled,
+            "sources_found": sources_found,
+            "crawl_type": "autonomous",
+            **kwargs
+        },
+        timestamp=datetime.utcnow(),
+        source="autonomous_scanner"
     ) 

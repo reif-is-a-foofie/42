@@ -2,6 +2,7 @@
 
 import typer
 import time
+import asyncio
 from typing import Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -779,8 +780,134 @@ def status():
         raise typer.Exit(1)
 
 
+scanner_app = typer.Typer(help="Manage the autonomous source scanner.")
+
+
+@scanner_app.command()
+def start():
+    """Start the autonomous source scanner."""
+    try:
+        async def start_scanner():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import AutonomousScanner
+            
+            # Load configuration
+            config = load_config()
+            
+            # Initialize components
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            
+            # Create and start scanner
+            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            await scanner.start()
+        
+        asyncio.run(start_scanner())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to start scanner: {e}")
+        raise typer.Exit(1)
+
+
+@scanner_app.command()
+def status():
+    """Get autonomous scanner status."""
+    try:
+        async def get_scanner_status():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import AutonomousScanner
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            
+            status = scanner.get_status()
+            
+            console.print("[bold]Autonomous Scanner Status[/bold]")
+            console.print("=" * 40)
+            console.print(f"Running: {'✓' if status['running'] else '✗'}")
+            console.print(f"Discovered Sources: {status['discovered_sources_count']}")
+            console.print(f"Crawled Domains: {status['crawled_domains_count']}")
+            console.print(f"Pending Targets: {status['pending_targets_count']}")
+            console.print(f"Learned Patterns: {status['learned_patterns_count']}")
+        
+        asyncio.run(get_scanner_status())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to get scanner status: {e}")
+        raise typer.Exit(1)
+
+
+@scanner_app.command()
+def discover(url: str = typer.Argument(..., help="URL to discover sources from")):
+    """Manually trigger source discovery for a URL."""
+    try:
+        async def discover_sources():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import AutonomousScanner, CrawlTarget
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            
+            # Setup browser
+            await scanner._setup_browser()
+            
+            # Create crawl target
+            target = CrawlTarget(
+                url=url,
+                priority=1.0,
+                crawl_depth=2,
+                source_type="manual_discovery"
+            )
+            
+            # Crawl the target
+            await scanner._crawl_target(target)
+            
+            console.print(f"[green]✓[/green] Discovered sources from {url}")
+        
+        asyncio.run(discover_sources())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to discover sources: {e}")
+        raise typer.Exit(1)
+
+
+@scanner_app.command()
+def learn():
+    """Trigger learning from knowledge base."""
+    try:
+        async def learn_from_knowledge():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import AutonomousScanner
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            
+            # Learn from knowledge base
+            await scanner._learn_from_knowledge_base()
+            
+            console.print("[green]✓[/green] Learned from knowledge base")
+            console.print(f"Learned patterns: {len(scanner.learned_patterns)}")
+        
+        asyncio.run(learn_from_knowledge())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to learn from knowledge base: {e}")
+        raise typer.Exit(1)
+
+
 def main():
     """Main CLI entry point."""
+    app.add_typer(scanner_app, name="scanner")
     app()
 
 
