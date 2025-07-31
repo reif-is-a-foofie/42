@@ -699,6 +699,79 @@ def search(
         console.print(f"[red]✗[/red] Failed to search knowledge base: {e}")
         raise typer.Exit(1)
 
+@app.command()
+def status():
+    """Check knowledge engine status and queue information."""
+    try:
+        import redis
+        import json
+        import os
+        from datetime import datetime
+        
+        console.print("[bold]Knowledge Engine Status[/bold]")
+        console.print("=" * 50)
+        
+        # Check Redis connection and queues
+        try:
+            r = redis.Redis()
+            r.ping()
+            console.print("[green]✓[/green] Redis: Connected")
+            
+            # Check event queues
+            doc_queue_len = r.llen("42:events:knowledge.document")
+            console.print(f"  Documents in queue: {doc_queue_len}")
+            
+            # Check if there are any recent events
+            recent_events = r.lrange("42:events:knowledge.document", -5, -1)
+            if recent_events:
+                console.print(f"  Recent events: {len(recent_events)}")
+                for event in recent_events[-3:]:  # Show last 3
+                    event_data = json.loads(event)
+                    timestamp = event_data.get('timestamp', 'Unknown')
+                    console.print(f"    - {timestamp[:19]} | {event_data.get('data', {}).get('source_id', 'Unknown')}")
+            else:
+                console.print("  No recent events found")
+            
+        except Exception as e:
+            console.print(f"[red]✗[/red] Redis: {e}")
+        
+        # Check knowledge sources
+        if os.path.exists("universal_sources.json"):
+            with open("universal_sources.json", "r") as f:
+                sources_data = json.load(f)
+            
+            active_sources = [s for s in sources_data if s.get("active", True)]
+            console.print(f"[blue]ℹ[/blue] Sources: {len(active_sources)} active, {len(sources_data)} total")
+            
+            for source in active_sources[:3]:  # Show first 3 active sources
+                console.print(f"  - {source['name']} ({source['type']}) | {source['url'][:50]}...")
+        else:
+            console.print("[yellow]⚠[/yellow] No sources configured")
+        
+        # Check vector database
+        try:
+            from .vector_store import VectorStore
+            vs = VectorStore()
+            total_points = vs.get_total_points()
+            console.print(f"[blue]ℹ[/blue] Vector DB: {total_points} documents stored")
+        except Exception as e:
+            console.print(f"[red]✗[/red] Vector DB: {e}")
+        
+        # Check if knowledge engine process is running
+        import subprocess
+        try:
+            result = subprocess.run(["ps", "aux"], capture_output=True, text=True)
+            if "42 watch" in result.stdout:
+                console.print("[green]✓[/green] Knowledge Engine: Running")
+            else:
+                console.print("[yellow]⚠[/yellow] Knowledge Engine: Not running")
+        except:
+            console.print("[yellow]⚠[/yellow] Knowledge Engine: Status unknown")
+            
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to check status: {e}")
+        raise typer.Exit(1)
+
 
 def main():
     """Main CLI entry point."""

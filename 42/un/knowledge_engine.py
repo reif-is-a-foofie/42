@@ -537,6 +537,7 @@ class KnowledgeEngine:
             
         except Exception as e:
             logger.error(f"Failed to store documents: {e}")
+            logger.exception("Full traceback:")
             # Fallback to Redis only
             for doc in documents:
                 self.redis_bus.publish_event(Event(
