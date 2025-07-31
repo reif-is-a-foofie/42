@@ -468,13 +468,26 @@ class KnowledgeEngine:
             return
             
         try:
-            # Use existing 42.zero JobManager.import_data functionality
-            from ..job_manager import JobManager
+            # Use existing 42.zero import functionality directly
+            from ..chunker import Chunker
+            from ..embedding import EmbeddingEngine
+            from ..vector_store import VectorStore
+            from qdrant_client.models import PointStruct
             import tempfile
             import os
             
-            # Create temporary files for each document (42.zero expects files)
+            # Initialize 42.zero components
+            chunker = Chunker()
+            embedding_engine = EmbeddingEngine()
+            vector_store = VectorStore()
+            
+            # Ensure collection exists
+            vector_store.create_collection(embedding_engine.get_dimension())
+            
+            # Create temporary files for each document and chunk them
             temp_files = []
+            all_chunks = []
+            
             for doc in documents:
                 # Create temporary file with knowledge metadata
                 safe_name = doc.source_id.replace("/", "_").replace(":", "_")[:50]
@@ -487,11 +500,31 @@ class KnowledgeEngine:
                     f.write(f"# ---\n\n")
                     f.write(doc.content)
                     temp_files.append(f.name)
+                    
+                    # Chunk the file using 42.zero chunker
+                    chunks = chunker.chunk_file(f.name)
+                    all_chunks.extend(chunks)
             
-            # Use existing 42.zero import_data functionality (handles chunking, embedding, storage)
-            job_manager = JobManager()
-            for temp_file in temp_files:
-                job_manager.import_data(temp_file)
+            # Embed and store chunks using 42.zero functionality
+            for i, chunk in enumerate(all_chunks):
+                # Embed the chunk
+                vector = embedding_engine.embed_text(chunk.text)
+                
+                # Create point with unique ID
+                point = PointStruct(
+                    id=f"knowledge_{hash(chunk.text)}_{i}",
+                    vector=vector,
+                    payload={
+                        "text": chunk.text,
+                        "file_path": chunk.file_path,
+                        "start_line": chunk.start_line,
+                        "end_line": chunk.end_line,
+                        "metadata": chunk.metadata or {}
+                    }
+                )
+                
+                # Store in vector database
+                vector_store.upsert([point])
             
             # Clean up temporary files
             for temp_file in temp_files:
