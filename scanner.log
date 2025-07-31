@@ -1,0 +1,16 @@
+2025-07-30 23:57:53.301 | INFO     | un.redis_bus:_test_connection:54 - Connected to Redis at localhost:6379
+2025-07-30 23:57:53.303 | INFO     | un.autonomous_scanner:start:95 - Starting autonomous source scanner
+2025-07-30 23:57:54.863 | INFO     | un.autonomous_scanner:_crawl_target:219 - Crawling target: https://dynomight.net
+2025-07-30 23:57:58.267 | INFO     | un.autonomous_scanner:_add_source_to_knowledge_engine:411 - Adding discovered source to knowledge engine: https://dynomight.net/feed.xml
+2025-07-30 23:57:58.274 | DEBUG    | un.redis_bus:publish_event:77 - Published event knowledge.document_1753955878.268895 to 42:events:knowledge.document
+2025-07-30 23:57:58.274 | ERROR    | un.autonomous_scanner:_process_discovered_sources:359 - Error processing source https://dynomight.net/feed.xml: object bool can't be used in 'await' expression
+2025-07-30 23:57:58.274 | INFO     | un.autonomous_scanner:_add_source_to_knowledge_engine:411 - Adding discovered source to knowledge engine: https://dynomight.net/breastfeeding/
+2025-07-30 23:57:58.278 | DEBUG    | un.redis_bus:publish_event:77 - Published event knowledge.document_1753955878.275111 to 42:events:knowledge.document
+2025-07-30 23:57:58.278 | ERROR    | un.autonomous_scanner:_process_discovered_sources:359 - Error processing source https://dynomight.net/breastfeeding/: object bool can't be used in 'await' expression
+2025-07-30 23:57:59.305 | INFO     | un.autonomous_scanner:_crawl_target:219 - Crawling target: https://arxiv.org
+2025-07-30 23:58:01.018 | INFO     | un.autonomous_scanner:_add_source_to_knowledge_engine:411 - Adding discovered source to knowledge engine: https://arxiv.org/list/physics.atom-ph/recent
+2025-07-30 23:58:01.027 | DEBUG    | un.redis_bus:publish_event:77 - Published event knowledge.document_1753955881.01876 to 42:events:knowledge.document
+2025-07-30 23:58:01.027 | ERROR    | un.autonomous_scanner:_process_discovered_sources:359 - Error processing source https://arxiv.org/list/physics.atom-ph/recent: object bool can't be used in 'await' expression
+2025-07-30 23:58:01.027 | INFO     | un.autonomous_scanner:_add_source_to_knowledge_engine:411 - Adding discovered source to knowledge engine: https://arxiv.org/archive/astro-ph
+2025-07-30 23:58:01.031 | DEBUG    | un.redis_bus:publish_event:77 - Published event knowledge.document_1753955881.02784 to 42:events:knowledge.document
+2025-07-30 23:58:01.032 | ERROR    | un.autonomous_scanner:_process_discovered_sources:359 - Error processing source https://arxiv.org/archive/astro-ph: object bool can't be used in 'await' expression
