@@ -442,21 +442,33 @@ class KnowledgeEngine:
                         continue
                     
                     fetcher = fetcher_class(session)
+                    logger.info(f"🌐 FETCHING: {source.name} ({source.type}) from {source.url}")
                     documents = await fetcher.fetch(source)
                     
                     if not documents:
+                        logger.warning(f"❌ No documents fetched from {source.name}")
                         continue
                     
+                    logger.info(f"✅ FETCHED: {len(documents)} documents from {source.name}")
+                    
                     # Normalize documents
+                    logger.info(f"🔄 NORMALIZING: {len(documents)} documents")
                     normalized_docs = self.normalizer.normalize(documents)
+                    logger.info(f"✅ NORMALIZED: {len(normalized_docs)} documents ready for storage")
                     
                     # Check triggers and fire events
+                    triggered_count = 0
                     for doc in normalized_docs:
                         triggered_events = self.trigger.check_triggers(doc)
                         if triggered_events:
                             await self.trigger.fire_events(doc, triggered_events)
+                            triggered_count += 1
                     
-                    # Store in vector DB (placeholder)
+                    if triggered_count > 0:
+                        logger.info(f"🚨 TRIGGERS: {triggered_count} documents triggered events")
+                    
+                    # Store in vector DB
+                    logger.info(f"💾 STORING: {len(normalized_docs)} documents in vector database")
                     await self._store_documents(normalized_docs)
                     
                 except Exception as e:
@@ -465,8 +477,11 @@ class KnowledgeEngine:
     async def _store_documents(self, documents: List[KnowledgeDocument]):
         """Store documents using existing 42.zero import functionality."""
         if not documents:
+            logger.warning("No documents to store")
             return
             
+        logger.info(f"🔄 STORAGE PIPELINE: Starting storage of {len(documents)} documents")
+        
         try:
             # Use existing 42.zero import functionality directly
             from ..chunker import Chunker
@@ -475,6 +490,9 @@ class KnowledgeEngine:
             from qdrant_client.models import PointStruct
             import tempfile
             import os
+            import uuid
+            
+            logger.info("📦 PIPELINE STEP 1: Initializing 42.zero components")
             
             # Initialize 42.zero components
             chunker = Chunker()
@@ -482,13 +500,21 @@ class KnowledgeEngine:
             vector_store = VectorStore()
             
             # Ensure collection exists
-            vector_store.create_collection(embedding_engine.get_dimension())
+            vector_size = embedding_engine.get_dimension()
+            vector_store.create_collection(vector_size)
+            logger.info(f"✅ Vector store initialized (dimension: {vector_size})")
             
             # Create temporary files for each document and chunk them
             temp_files = []
             all_chunks = []
             
-            for doc in documents:
+            logger.info("📝 PIPELINE STEP 2: Processing documents into chunks")
+            
+            for doc_idx, doc in enumerate(documents):
+                logger.info(f"  📄 Processing document {doc_idx + 1}/{len(documents)}: {doc.source_id}")
+                logger.info(f"     Content length: {len(doc.content)} chars")
+                logger.info(f"     Title: {doc.metadata.get('title', 'No title')[:100]}...")
+                
                 # Create temporary file with knowledge metadata
                 safe_name = doc.source_id.replace("/", "_").replace(":", "_")[:50]
                 with tempfile.NamedTemporaryFile(mode='w', suffix=f'_{safe_name}.txt', delete=False) as f:
@@ -504,27 +530,58 @@ class KnowledgeEngine:
                     # Chunk the file using 42.zero chunker
                     chunks = chunker.chunk_file(f.name)
                     all_chunks.extend(chunks)
+                    logger.info(f"     Generated {len(chunks)} chunks from document")
+            
+            logger.info(f"✅ CHUNKING COMPLETE: {len(all_chunks)} total chunks generated")
+            
+            if not all_chunks:
+                logger.warning("❌ No chunks generated - aborting storage")
+                return
+            
+            logger.info("🧠 PIPELINE STEP 3: Embedding and storing chunks")
             
             # Embed and store chunks using 42.zero functionality
+            stored_count = 0
             for i, chunk in enumerate(all_chunks):
-                # Embed the chunk
-                vector = embedding_engine.embed_text(chunk.text)
-                
-                # Create point with unique ID
-                point = PointStruct(
-                    id=f"knowledge_{hash(chunk.text)}_{i}",
-                    vector=vector,
-                    payload={
-                        "text": chunk.text,
-                        "file_path": chunk.file_path,
-                        "start_line": chunk.start_line,
-                        "end_line": chunk.end_line,
-                        "metadata": chunk.metadata or {}
-                    }
-                )
-                
-                # Store in vector database
-                vector_store.upsert([point])
+                try:
+                    logger.debug(f"  🔤 Embedding chunk {i + 1}/{len(all_chunks)}: {chunk.text[:100]}...")
+                    
+                    # Embed the chunk
+                    vector = embedding_engine.embed_text(chunk.text)
+                    logger.debug(f"     Embedding shape: {len(vector) if vector else 'None'}")
+                    
+                    if not vector:
+                        logger.error(f"❌ Failed to generate embedding for chunk {i}")
+                        continue
+                    
+                    # Create point with unique ID using UUID to avoid collisions
+                    point_id = str(uuid.uuid4())
+                    point = PointStruct(
+                        id=point_id,
+                        vector=vector,
+                        payload={
+                            "text": chunk.text,
+                            "file_path": chunk.file_path,
+                            "start_line": chunk.start_line,
+                            "end_line": chunk.end_line,
+                            "metadata": chunk.metadata or {},
+                            "knowledge_source": True,  # Mark as knowledge content
+                            "ingestion_timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                    )
+                    
+                    logger.debug(f"     Created point with ID: {point_id}")
+                    
+                    # Store in vector database
+                    vector_store.upsert([point])
+                    stored_count += 1
+                    logger.debug(f"     ✅ Stored chunk {i + 1} in vector DB")
+                    
+                except Exception as chunk_error:
+                    logger.error(f"❌ Failed to process chunk {i}: {chunk_error}")
+                    continue
+            
+            logger.info(f"✅ EMBEDDING & STORAGE COMPLETE: {stored_count}/{len(all_chunks)} chunks stored")
             
             # Clean up temporary files
             for temp_file in temp_files:
@@ -533,7 +590,10 @@ class KnowledgeEngine:
                 except:
                     pass  # Ignore cleanup errors
             
+            logger.info("🧹 Temporary files cleaned up")
+            
             # Also publish to Redis for event system
+            logger.info("📡 PIPELINE STEP 4: Publishing to Redis event bus")
             for doc in documents:
                 self.redis_bus.publish_event(Event(
                     event_type=EventType.KNOWLEDGE_DOCUMENT,
@@ -542,7 +602,14 @@ class KnowledgeEngine:
                     source="knowledge_engine"
                 ))
             
-            logger.info(f"Stored {len(documents)} documents using 42.zero import_data functionality")
+            logger.info(f"🎉 STORAGE PIPELINE COMPLETE: Successfully stored {len(documents)} documents ({stored_count} chunks) in vector database")
+            
+            # Verify storage by checking total count
+            try:
+                total_points = vector_store.get_total_points()
+                logger.info(f"📊 Vector DB now contains {total_points} total points")
+            except Exception as count_error:
+                logger.warning(f"Could not verify point count: {count_error}")
             
         except Exception as e:
             logger.error(f"Failed to store documents using 42.zero import_data: {e}")
