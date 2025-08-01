@@ -26,7 +26,14 @@ console = Console()
 
 @app.command()
 def create():
-    """Create and initialize 42 system."""
+    """Create and initialize 42 system.
+    
+    Initializes the embedding engine, loads configuration, and sets up
+    the basic 42 system infrastructure.
+    
+    Raises:
+        typer.Exit: If system initialization fails.
+    """
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -78,7 +85,14 @@ def embed(text: str = typer.Argument(..., help="Text to embed")):
 
 @app.command()
 def status():
-    """Check system status."""
+    """Check system status.
+    
+    Tests connections to Qdrant, Ollama, and Redis services,
+    and displays current system configuration.
+    
+    Raises:
+        typer.Exit: If status check fails.
+    """
     try:
         config = load_config()
         console.print("[bold]42 System Status[/bold]")
@@ -222,9 +236,22 @@ def extract_github(
     background: bool = typer.Option(False, "--background", "-b", help="Run in background"),
     max_workers: int = typer.Option(None, "--max-workers", "-w", help="Number of parallel workers (default: CPU count)"),
     verbose: bool = typer.Option(True, "--verbose", "-v", help="Enable verbose logging"),
-    dump_embeddings: Optional[str] = typer.Option(None, "--dump-embeddings", help="Save embeddings to JSONL file")
+    dump_embeddings: Optional[str] = typer.Option(None, "--dump-embeddings", help="Save embeddings to JSONL file"),
+    timeout: int = typer.Option(600, "--timeout", "-t", help="Timeout in seconds (default: 600)")
 ):
-    """Extract and analyze a GitHub repository."""
+    """Extract and analyze a GitHub repository.
+    
+    Args:
+        repo_url: GitHub repository URL to extract.
+        background: Run in background mode.
+        max_workers: Number of parallel workers.
+        verbose: Enable verbose logging.
+        dump_embeddings: Save embeddings to JSONL file.
+        timeout: Timeout in seconds for the operation.
+        
+    Raises:
+        typer.Exit: If extraction fails or times out.
+    """
     try:
         extractor = GitHubExtractor(max_workers=max_workers, verbose=verbose, dump_embeddings_path=dump_embeddings)
         
@@ -243,7 +270,19 @@ def extract_github(
         with Progress() as progress:
             task = progress.add_task("Analyzing repository...", total=None)
             
-            result = extractor.analyze_repository(repo_url, progress_callback=progress_callback)
+            # Add timeout handling
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"Operation timed out after {timeout} seconds")
+            
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout)
+            
+            try:
+                result = extractor.analyze_repository(repo_url, progress_callback=progress_callback)
+            finally:
+                signal.alarm(0)  # Cancel the alarm
             
             if result["status"] == "success":
                 console.print(f"[green]✓[/green] Extracted {result['chunks']} chunks from {repo_url}")
@@ -379,9 +418,21 @@ def query(
     question: str = typer.Argument(..., help="Question to ask about the codebase"),
     model: str = typer.Option("llama3.2", "--model", "-m", help="Ollama model to use"),
     top_k: int = typer.Option(5, "--top-k", "-k", help="Number of relevant chunks to include"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information")
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information"),
+    timeout: int = typer.Option(120, "--timeout", "-t", help="Timeout in seconds (default: 120)")
 ):
-    """Query the codebase using LLM with context from vector store."""
+    """Query the codebase using LLM with context from vector store.
+    
+    Args:
+        question: The question to ask about the codebase.
+        model: Ollama model to use for response generation.
+        top_k: Number of relevant chunks to include in context.
+        verbose: Show detailed information about the query process.
+        timeout: Timeout in seconds for the operation.
+        
+    Raises:
+        typer.Exit: If query fails or times out.
+    """
     try:
         llm_engine = LLMEngine()
         
