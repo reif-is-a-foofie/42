@@ -10,12 +10,24 @@ import time
 import subprocess
 import sys
 import os
+import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
+from loguru import logger
 
 # Add project root to path
 sys.path.append('.')
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('intelligence_test.log'),
+        logging.StreamHandler()
+    ]
+)
 
 
 class TestDomain(Enum):
@@ -60,31 +72,34 @@ class IntelligenceTestFramework:
     
     def __init__(self):
         """Initialize the intelligence test framework."""
+        logger.info("Initializing IntelligenceTestFramework")
         self.questions = self._load_questions()
         self.results = []
         self.current_domain = None
+        logger.info(f"Loaded {len(self.questions)} questions across 5 domains")
         
     def _load_questions(self) -> List[IntelligenceQuestion]:
         """Load all 100 intelligence test questions."""
+        logger.info("Loading 100 intelligence test questions")
         questions = []
         
         # Domain 1: Self-Awareness & DB Introspection (20 Qs)
         self_awareness_questions = [
             IntelligenceQuestion(1, TestDomain.SELF_AWARENESS, 
                 "How many vectors are currently stored in your knowledge base?", 
-                '{"vector_count": 78592}', "json", 2, ["status"], 15),
+                '{"vector_count": 78592}', "json", 2, ["status"], 8),
             IntelligenceQuestion(2, TestDomain.SELF_AWARENESS,
                 "List your last 3 embedded sources.",
-                '["https://arxiv.org/...","dynomight.net","fema.gov/..."]', "json", 2, ["sources"], 15),
+                '["https://arxiv.org/...","dynomight.net","fema.gov/..."]', "json", 2, ["sources"], 8),
             IntelligenceQuestion(3, TestDomain.SELF_AWARENESS,
                 "Show the date and time of your last embedding.",
-                "2025-07-31 08:08 UTC", "text", 2, ["status"], 15),
+                "2025-07-31 08:08 UTC", "text", 2, ["status"], 8),
             IntelligenceQuestion(4, TestDomain.SELF_AWARENESS,
                 "What is your current soul identity?",
-                '"Steve v4 - Autonomous Knowledge Agent"', "text", 1, ["soul"], 10),
+                '"Steve v4 - Autonomous Knowledge Agent"', "text", 1, ["soul"], 6),
             IntelligenceQuestion(5, TestDomain.SELF_AWARENESS,
                 "Which keywords are in your soul config?",
-                '["AI","dataset","disaster","research","infrastructure"]', "json", 2, ["soul"], 15),
+                '["AI","dataset","disaster","research","infrastructure"]', "json", 2, ["soul"], 8),
             IntelligenceQuestion(6, TestDomain.SELF_AWARENESS,
                 "Which domains do you prefer?",
                 '["arxiv.org","github.com","researchgate.net","scholar.google.com"]', "json", 2, ["sources"], 15),
@@ -395,6 +410,7 @@ class IntelligenceTestFramework:
         questions.extend(mission_questions)
         questions.extend(self_learning_questions)
         
+        logger.info(f"Loaded questions: {len(self_awareness_questions)} self-awareness, {len(web_intelligence_questions)} web-intelligence, {len(logical_questions)} logical, {len(mission_questions)} mission, {len(self_learning_questions)} self-learning")
         return questions
     
     def self_select_test_domain(self) -> TestDomain:
@@ -405,6 +421,9 @@ class IntelligenceTestFramework:
     
     def run_question_test(self, question: IntelligenceQuestion) -> TestResult:
         """Run a single intelligence test question."""
+        logger.info(f"Starting question {question.id}: {question.question[:50]}...")
+        logger.info(f"Domain: {question.domain.value}, Expected: {question.expected_output[:50]}...")
+        
         print(f"\n🧠 Question {question.id}: {question.question}")
         print(f"Domain: {question.domain.value}")
         print(f"Expected: {question.expected_output}")
@@ -414,6 +433,7 @@ class IntelligenceTestFramework:
         
         try:
             # Use the chat command with timeout
+            logger.info(f"Starting subprocess for question {question.id}")
             process = subprocess.Popen(
                 ["python3", "-m", "42", "chat"],
                 stdin=subprocess.PIPE,
@@ -424,9 +444,12 @@ class IntelligenceTestFramework:
             
             # Send question and exit
             input_data = f"{question.question}\nexit\n"
+            logger.info(f"Sending input to subprocess: {question.question[:50]}...")
             stdout, stderr = process.communicate(input=input_data, timeout=question.timeout_seconds)
+            logger.info(f"Subprocess completed for question {question.id}")
             
             # Parse response
+            logger.info(f"Parsing response for question {question.id}")
             response_lines = stdout.split('\n')
             actual_output = ""
             confidence = 0.0
@@ -446,9 +469,11 @@ class IntelligenceTestFramework:
                         tools_used = [t.strip() for t in tools.strip("[]").split(",")]
             
             response_time = time.time() - start_time
+            logger.info(f"Question {question.id} response time: {response_time:.2f}s")
             
             # Evaluate success based on expected type
             success = self._evaluate_response(actual_output, question.expected_output, question.expected_type)
+            logger.info(f"Question {question.id} success: {success}")
             
             result = TestResult(
                 question_id=question.id,
@@ -470,6 +495,7 @@ class IntelligenceTestFramework:
             return result
             
         except subprocess.TimeoutExpired:
+            logger.error(f"Question {question.id} timed out after {question.timeout_seconds}s")
             print("❌ Timeout")
             return TestResult(
                 question_id=question.id,
@@ -484,6 +510,7 @@ class IntelligenceTestFramework:
                 error="Timeout"
             )
         except Exception as e:
+            logger.error(f"Question {question.id} failed with error: {e}")
             print(f"❌ Error: {e}")
             return TestResult(
                 question_id=question.id,
@@ -527,21 +554,25 @@ class IntelligenceTestFramework:
     
     def run_domain_tests(self, domain: TestDomain, max_questions: int = 5) -> List[TestResult]:
         """Run tests for a specific domain."""
+        logger.info(f"Starting domain tests for {domain.value}")
         print(f"\n🎯 Running {domain.value.upper()} Tests")
         print("=" * 60)
         
         domain_questions = [q for q in self.questions if q.domain == domain]
         selected_questions = domain_questions[:max_questions]
+        logger.info(f"Selected {len(selected_questions)} questions for domain {domain.value}")
         
         results = []
         for question in selected_questions:
             result = self.run_question_test(question)
             results.append(result)
             
+        logger.info(f"Completed domain {domain.value} with {len(results)} results")
         return results
     
     def run_comprehensive_test(self, max_questions_per_domain: int = 4) -> Dict[str, Any]:
         """Run comprehensive intelligence test across all domains."""
+        logger.info("Starting comprehensive intelligence test")
         print("🧠 42 Intelligence Test - 100 Questions Framework")
         print("=" * 80)
         print("Following cursor rules: must_pass_tests, require_test_for, test_style=pytest")
@@ -551,6 +582,7 @@ class IntelligenceTestFramework:
         domain_stats = {}
         
         for domain in TestDomain:
+            logger.info(f"Processing domain: {domain.value}")
             print(f"\n📋 Testing Domain: {domain.value.upper()}")
             results = self.run_domain_tests(domain, max_questions_per_domain)
             all_results.extend(results)
@@ -568,6 +600,7 @@ class IntelligenceTestFramework:
         # Overall statistics
         total_successful = len([r for r in all_results if r.success])
         overall_success_rate = total_successful / len(all_results) if all_results else 0
+        logger.info(f"Test completed: {total_successful}/{len(all_results)} successful ({overall_success_rate:.1%})")
         
         # Cursor rules compliance check
         cursor_compliance = self._check_cursor_rules_compliance(all_results)
