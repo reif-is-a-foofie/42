@@ -34,16 +34,4 @@ class Cluster:
     size: int = 0
 
 
-@dataclass(frozen=True)
-class Config:
-    """Configuration for 42 system."""
-    qdrant_host: str = "localhost"
-    qdrant_port: int = 6333
-    ollama_host: str = "localhost"
-    ollama_port: int = 11434
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    embedding_model: str = "BAAI/bge-small-en"
-    embedding_dimension: int = 384
-    collection_name: str = "42_chunks"
-    log_level: str = "INFO" 
+# Config class moved to config.py using Pydantic Settings 

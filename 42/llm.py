@@ -1,7 +1,7 @@
 """LLM engine for 42."""
 
 import os
-import requests
+import httpx
 import json
 from typing import List, Dict, Optional
 from loguru import logger
@@ -67,14 +67,15 @@ class LLMEngine:
         
         try:
             logger.info(f"Sending request to Ollama with {len(prompt)} characters")
-            response = requests.post(url, json=payload, timeout=120)  # Increased timeout
-            response.raise_for_status()
-            
-            result = response.json()
-            logger.info(f"Received response from Ollama")
-            return result.get("response", "No response generated")
-            
-        except requests.exceptions.RequestException as e:
+            with httpx.Client(timeout=120.0) as client:
+                response = client.post(url, json=payload)
+                response.raise_for_status()
+                
+                result = response.json()
+                logger.info(f"Received response from Ollama")
+                return result.get("response", "No response generated")
+                
+        except httpx.RequestError as e:
             logger.error(f"Ollama API error: {e}")
             raise Exception(f"Failed to connect to Ollama: {e}")
     
@@ -82,12 +83,13 @@ class LLMEngine:
         """List available Ollama models."""
         try:
             url = f"{self.base_url}/api/tags"
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            
-            result = response.json()
-            return [model["name"] for model in result.get("models", [])]
-            
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(url)
+                response.raise_for_status()
+                
+                result = response.json()
+                return [model["name"] for model in result.get("models", [])]
+                
         except Exception as e:
             logger.error(f"Failed to list models: {e}")
             return []
@@ -96,7 +98,8 @@ class LLMEngine:
         """Test connection to Ollama."""
         try:
             url = f"{self.base_url}/api/tags"
-            response = requests.get(url, timeout=5)
-            return response.status_code == 200
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(url)
+                return response.status_code == 200
         except:
             return False 

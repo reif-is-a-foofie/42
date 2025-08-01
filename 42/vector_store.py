@@ -141,14 +141,15 @@ class VectorStore:
         """Get total number of points in collection."""
         try:
             # Use direct HTTP call to avoid validation issues
-            import requests
-            response = requests.get(f"http://{self.client._client._host}:{self.client._client._port}/collections/{self.collection_name}")
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("result", {}).get("points_count", 0)
-            else:
-                logger.error(f"Failed to get collection info: {response.status_code}")
-                return 0
+            import httpx
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(f"http://{self.client._client._host}:{self.client._client._port}/collections/{self.collection_name}")
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("result", {}).get("points_count", 0)
+                else:
+                    logger.error(f"Failed to get collection info: {response.status_code}")
+                    return 0
         except Exception as e:
             logger.error(f"Failed to get total points: {e}")
             return 0

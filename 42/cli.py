@@ -5,7 +5,12 @@ import time
 import asyncio
 from typing import Optional
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from rich.table import Table
+from rich.panel import Panel
+from rich.text import Text
+from rich.syntax import Syntax
+from rich.prompt import Confirm, Prompt
 from loguru import logger
 
 from .config import load_config, save_config
@@ -15,6 +20,7 @@ from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
 from .cluster import ClusteringEngine
+from .jobs import get_task_status, list_tasks, extract_github_repository, recluster_vectors, import_data
 from .api import run_server
 # Import heavy components only when needed
 # from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
@@ -95,26 +101,73 @@ def status():
     """
     try:
         config = load_config()
-        console.print("[bold]42 System Status[/bold]")
-        console.print(f"Qdrant: {config.qdrant_host}:{config.qdrant_port}")
-        console.print(f"Ollama: {config.ollama_host}:{config.ollama_port}")
-        console.print(f"Redis: {config.redis_host}:{config.redis_port}")
-        console.print(f"Embedding model: {config.embedding_model}")
-        console.print(f"Collection: {config.collection_name}")
         
-        # Test connections
-        try:
-            embedding_engine = EmbeddingEngine()
-            console.print("[green]✓[/green] Embedding engine: OK")
-        except Exception as e:
-            console.print(f"[red]✗[/red] Embedding engine: {e}")
+        # Create status table
+        table = Table(title="42 System Status", show_header=True, header_style="bold magenta")
+        table.add_column("Service", style="cyan", no_wrap=True)
+        table.add_column("Host:Port", style="green")
+        table.add_column("Status", style="bold")
+        table.add_column("Details", style="yellow")
         
-        try:
-            vector_store = VectorStore()
-            console.print("[green]✓[/green] Vector store: OK")
-        except Exception as e:
-            console.print(f"[red]✗[/red] Vector store: {e}")
-            console.print("[yellow]Note:[/yellow] Start Qdrant with: docker compose up -d")
+        # Add configuration rows
+        table.add_row("Qdrant", f"{config.qdrant_host}:{config.qdrant_port}", "Config", "")
+        table.add_row("Ollama", f"{config.ollama_host}:{config.ollama_port}", "Config", "")
+        table.add_row("Redis", f"{config.redis_host}:{config.redis_port}", "Config", "")
+        table.add_row("Embedding", config.embedding_model, "Config", f"Dim: {config.embedding_dimension}")
+        table.add_row("Collection", config.collection_name, "Config", "")
+        
+        console.print(table)
+        console.print()
+        
+        # Test connections with progress
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeElapsedColumn(),
+            console=console
+        ) as progress:
+            
+            # Test embedding engine
+            task1 = progress.add_task("Testing embedding engine...", total=1)
+            try:
+                embedding_engine = EmbeddingEngine()
+                progress.update(task1, completed=1, description="✓ Embedding engine: OK")
+            except Exception as e:
+                progress.update(task1, completed=1, description=f"✗ Embedding engine: {str(e)[:50]}")
+            
+            # Test vector store
+            task2 = progress.add_task("Testing vector store...", total=1)
+            try:
+                vector_store = VectorStore()
+                if vector_store.test_connection():
+                    progress.update(task2, completed=1, description="✓ Vector store: OK")
+                else:
+                    progress.update(task2, completed=1, description="✗ Vector store: Connection failed")
+            except Exception as e:
+                progress.update(task2, completed=1, description=f"✗ Vector store: {str(e)[:50]}")
+            
+            # Test LLM engine
+            task3 = progress.add_task("Testing LLM engine...", total=1)
+            try:
+                llm_engine = LLMEngine()
+                if llm_engine.test_connection():
+                    models = llm_engine.list_models()
+                    progress.update(task3, completed=1, description=f"✓ LLM engine: OK ({len(models)} models)")
+                else:
+                    progress.update(task3, completed=1, description="✗ LLM engine: Connection failed")
+            except Exception as e:
+                progress.update(task3, completed=1, description=f"✗ LLM engine: {str(e)[:50]}")
+        
+        # Show setup instructions if needed
+        console.print()
+        setup_panel = Panel(
+            Text("Setup Instructions", style="bold"),
+            Text("1. Start Qdrant: docker compose up -d\n2. Start Ollama: ollama serve\n3. Run: python3 -m 42 status"),
+            title="[bold blue]Next Steps[/bold blue]",
+            border_style="blue"
+        )
+        console.print(setup_panel)
             
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to check status: {e}")
@@ -256,10 +309,10 @@ def extract_github(
         extractor = GitHubExtractor(max_workers=max_workers, verbose=verbose, dump_embeddings_path=dump_embeddings)
         
         if background:
-            # Start background job
-            result = extractor.analyze_repository(repo_url, background=True)
+            # Start background job using Celery
+            task = extract_github_repository.delay(repo_url, max_workers)
             console.print(f"[yellow]→[/yellow] Started background analysis for {repo_url}")
-            console.print(f"Job ID: {result['job_id']}")
+            console.print(f"Job ID: {task.id}")
             console.print("Use '42 job-status <job_id>' to check progress")
             return
         
@@ -302,27 +355,45 @@ def extract_github(
 def job_status(job_id: str = typer.Argument(..., help="Background job ID")):
     """Check status of a background job."""
     try:
-        extractor = GitHubExtractor()
-        status = extractor.get_job_status(job_id)
+        status = get_task_status(job_id)
         
-        if status["status"] == "not_found":
-            console.print(f"[red]✗[/red] Job {job_id} not found")
+        # Create status table
+        table = Table(title=f"Job Status: {job_id}", show_header=True, header_style="bold magenta")
+        table.add_column("Property", style="cyan", no_wrap=True)
+        table.add_column("Value", style="green")
+        
+        table.add_row("Task ID", job_id)
+        table.add_row("State", status.get('state', 'unknown'))
+        table.add_row("Status", status.get('status', 'Unknown'))
+        
+        if 'current' in status and 'total' in status:
+            progress = f"{status['current']}/{status['total']} ({status['current']/status['total']*100:.1f}%)"
+            table.add_row("Progress", progress)
+        
+        if 'result' in status:
+            result = status['result']
+            if isinstance(result, dict):
+                for key, value in result.items():
+                    table.add_row(f"Result.{key}", str(value))
+        
+        if 'error' in status:
+            table.add_row("Error", status['error'])
+        
+        console.print(table)
+        
+        # Show color-coded status
+        state = status.get('state', 'unknown')
+        if state == 'success':
+            console.print("[green]✓[/green] Job completed successfully")
+        elif state == 'progress':
+            console.print("[yellow]→[/yellow] Job is running")
+        elif state == 'failure':
+            console.print("[red]✗[/red] Job failed")
             raise typer.Exit(1)
-        elif status["status"] == "running":
-            console.print(f"[yellow]→[/yellow] Job {job_id} is running")
-            console.print(f"Repository: {status['repo_url']}")
-            console.print(f"Elapsed time: {status['elapsed_time']:.1f}s")
-        elif status["status"] == "completed":
-            result = status["result"]
-            console.print(f"[green]✓[/green] Job {job_id} completed")
-            console.print(f"Repository: {result['repo_url']}")
-            console.print(f"Chunks extracted: {result['chunks']}")
-            if "elapsed_time" in result:
-                console.print(f"Total time: {result['elapsed_time']:.2f}s")
-        elif status["status"] == "failed":
-            console.print(f"[red]✗[/red] Job {job_id} failed")
-            console.print(f"Error: {status['error']}")
-            raise typer.Exit(1)
+        elif state == 'pending':
+            console.print("[blue]⏳[/blue] Job is pending")
+        else:
+            console.print(f"[gray]?[/gray] Job state: {state}")
             
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to get job status: {e}")
