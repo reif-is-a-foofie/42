@@ -1,63 +1,52 @@
 # 42 - Autonomous Intelligence Platform
 
-*Following MASTERPLAN.md vision of "digital organism capable of reasoning and acting without constant human supervision"*
+*Following the vision of a "digital organism capable of reasoning and acting without constant human supervision"*
 
 ## 🏗️ **Architecture**
 
 ```
 42/
-├── README.md              # This file
-├── startup/               # Startup scripts and configuration
-├── 42/                    # Core platform
-│   ├── moroni/           # NLP Brain (intelligent analysis)
-│   ├── mission/          # Mission Management
-│   │   └── steve/       # Autonomous Mining Agent
-│   ├── soul/             # Conscience & Values
-│   ├── embedding.py      # Text embedding engine
-│   ├── vector_store.py   # Vector database wrapper
-│   ├── cluster.py        # Clustering engine
-│   ├── prompt.py         # Prompt builder
-│   ├── llm.py           # LLM engine (Ollama)
-│   ├── chunker.py       # Content chunking
-│   ├── cli.py           # Command line interface
-│   ├── api.py           # FastAPI backend
-│   └── config.py        # Configuration management
-├── docs/                 # Documentation
-├── tests/                # Test suite
-└── TODO.md              # Development tasks
+├── soul/             # Conscience & Values
+├── moroni/           # NLP Brain (intelligent analysis)  
+├── mission/          # Mission Management
+│   └── steve/       # Autonomous Mining Agent
+└── infra/           # Infrastructure
+    ├── core/        # Core services (embedding, vector_store, etc.)
+    ├── services/    # API and CLI services
+    ├── utils/       # Utilities and configuration
+    ├── docs/        # Documentation
+    ├── logs/        # Log files
+    ├── startup/     # Configuration
+    └── tests/       # Test suite
 ```
 
 ## 🎯 **Core Modules**
 
+### **Soul** - Conscience & Values
+- Behavioral preferences and decision filtering
+- Value alignment and security
+- Moral compass for all system decisions
+
 ### **Moroni** - NLP Brain
-- Intelligent mission analysis
-- Query optimization
-- Content strategy planning
-- Learning orchestration
+- Intelligent mission analysis and planning
+- Query optimization and content strategy
+- Learning orchestration and reasoning
 
 ### **Mission** - Mission Management
-- Mission creation and assignment
-- Progress tracking
-- Mission chaining
-- Template management
+- Mission creation, assignment, and tracking
+- Progress monitoring and chaining
+- Template management and execution
 
 ### **Steve** - Autonomous Mining Agent
 - Web crawling and content extraction
 - Semantic search and discovery
 - Self-learning from high-quality content
-- Continuous knowledge acquisition
-
-### **Soul** - Conscience & Values
-- Behavioral preferences
-- Decision filtering
-- Value alignment
-- Security and safety
 
 ## 🚀 **Quick Start**
 
 ```bash
 # Install dependencies
-pip install -r requirements.txt
+pip install -r .config/requirements.txt
 
 # Start services
 docker-compose up -d
@@ -72,7 +61,7 @@ docker-compose up -d
 42 ask "What are the latest trends in healthcare AI?"
 ```
 
-## 📊 **Current Status**
+## 📊 **Development Phases**
 
 - ✅ **Phase un** - Reflex and ingestion (COMPLETED)
 - 🚀 **Phase deux** - Advanced optimization (IN PROGRESS)
@@ -90,10 +79,9 @@ Following `.cursor-rules` discipline:
 
 ## 📚 **Documentation**
 
-- `docs/masterplan.md` - Overall vision and phases
-- `docs/V.zero/TASKS.md` - Implementation tasks
-- `docs/42.un.tasks.md` - Current development tasks
-- `TODO.md` - Active task tracking
+- `42/infra/docs/MASTERPLAN.md` - Overall vision and phases
+- `42/infra/docs/42.un.tasks.md` - Current development tasks
+- `42/infra/docs/42.un.next.md` - Next phase planning
 
 ## 🎯 **Success Metrics**
 
