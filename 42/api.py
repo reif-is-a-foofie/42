@@ -13,7 +13,7 @@ from .vector_store import VectorStore
 from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
-# from .cluster import ClusteringEngine  # TODO: implement clustering
+from .cluster import ClusteringEngine
 
 
 # Pydantic models
@@ -94,7 +94,7 @@ try:
     chunker = Chunker()
     github_extractor = GitHubExtractor()
     llm_engine = LLMEngine()
-    # clustering_engine = ClusteringEngine()  # TODO: implement clustering
+    clustering_engine = ClusteringEngine()
     logger.info("All components initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize components: {e}")
@@ -246,16 +246,24 @@ async def import_folder(path: str):
 
 
 @app.post("/recluster", response_model=ReclusterResponse)
-async def recluster():
+async def recluster(
+    min_cluster_size: int = 5,
+    min_samples: int = 3
+):
     """Recluster all vectors."""
     try:
-        # TODO: implement clustering
-        # clusters = clustering_engine.recluster_vectors()
+        from .cluster import ClusteringEngine
+        
+        clustering_engine = ClusteringEngine()
+        clusters = clustering_engine.recluster_vectors(
+            min_cluster_size=min_cluster_size,
+            min_samples=min_samples
+        )
         
         return ReclusterResponse(
-            clusters=0,
-            status="not_implemented",
-            error="Clustering not yet implemented"
+            clusters=len(clusters),
+            status="success",
+            error=None
         )
         
     except Exception as e:

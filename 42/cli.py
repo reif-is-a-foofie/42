@@ -14,6 +14,7 @@ from .vector_store import VectorStore
 from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
+from .cluster import ClusteringEngine
 from .api import run_server
 # Import heavy components only when needed
 # from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
@@ -103,6 +104,59 @@ def status():
             
     except Exception as e:
         console.print(f"[red]✗[/red] Failed to check status: {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def recluster(
+    min_cluster_size: int = typer.Option(5, "--min-cluster-size", "-m", help="Minimum cluster size"),
+    min_samples: int = typer.Option(3, "--min-samples", "-s", help="Minimum samples for core points"),
+    generate_plot: bool = typer.Option(False, "--generate-plot", "-p", help="Generate cluster visualization plot")
+):
+    """Recluster all vectors using HDBSCAN."""
+    try:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console
+        ) as progress:
+            task = progress.add_task("Reclustering vectors...", total=None)
+            
+            # Initialize clustering engine
+            progress.update(task, description="Initializing clustering engine...")
+            clustering_engine = ClusteringEngine()
+            
+            # Perform reclustering
+            progress.update(task, description="Performing HDBSCAN clustering...")
+            clusters = clustering_engine.recluster_vectors(
+                min_cluster_size=min_cluster_size,
+                min_samples=min_samples
+            )
+            
+            # Get cluster statistics
+            progress.update(task, description="Calculating cluster statistics...")
+            stats = clustering_engine.get_cluster_stats()
+            
+            progress.update(task, description="Clustering complete!")
+            
+            # Display results
+            console.print(f"[green]✓[/green] Reclustering complete!")
+            console.print(f"[bold]Results:[/bold]")
+            console.print(f"  • Total vectors: {stats.get('total_vectors', 0)}")
+            console.print(f"  • Total clusters: {stats.get('total_clusters', 0)}")
+            console.print(f"  • Noise points: {stats.get('noise_points', 0)}")
+            
+            if clusters:
+                console.print(f"  • Clusters found: {len(clusters)}")
+                for cluster_id, cluster in clusters.items():
+                    console.print(f"    - Cluster {cluster_id}: {cluster.size} chunks")
+            
+            if generate_plot:
+                console.print(f"[green]✓[/green] Cluster visualization saved to docs/cluster.png")
+            
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to recluster vectors: {e}")
+        console.print("[yellow]Note:[/yellow] Install clustering dependencies with: pip install hdbscan umap-learn matplotlib")
         raise typer.Exit(1)
 
 
@@ -780,17 +834,19 @@ def status():
         raise typer.Exit(1)
 
 
-scanner_app = typer.Typer(help="Manage the autonomous source scanner.")
+steve_app = typer.Typer(help="Manage Steve - the autonomous source scanner.")
+
+steve2_app = typer.Typer(help="Manage Steve 2.0 - the universal discovery agent.")
 
 
-@scanner_app.command()
+@steve_app.command()
 def start():
-    """Start the autonomous source scanner."""
+    """Start Steve - the autonomous source scanner."""
     try:
         async def start_scanner():
             from .un.redis_bus import RedisBus
             from .un.knowledge_engine import KnowledgeEngine
-            from .un.autonomous_scanner import AutonomousScanner
+            from .un.autonomous_scanner import Steve
             
             # Load configuration
             config = load_config()
@@ -799,64 +855,116 @@ def start():
             redis_bus = RedisBus()
             knowledge_engine = KnowledgeEngine(redis_bus)
             
-            # Create and start scanner
-            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
-            await scanner.start()
+            # Create and start Steve
+            from .un.soul import soul
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
+            await steve.start()
         
         asyncio.run(start_scanner())
         
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to start scanner: {e}")
+        console.print(f"[red]✗[/red] Failed to start Steve: {e}")
         raise typer.Exit(1)
 
 
-@scanner_app.command()
+@steve_app.command()
 def status():
-    """Get autonomous scanner status."""
+    """Get Steve's status."""
     try:
         async def get_scanner_status():
             from .un.redis_bus import RedisBus
             from .un.knowledge_engine import KnowledgeEngine
-            from .un.autonomous_scanner import AutonomousScanner
+            from .un.autonomous_scanner import Steve
             
             config = load_config()
             redis_bus = RedisBus()
             knowledge_engine = KnowledgeEngine(redis_bus)
-            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            from .un.soul import soul
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
             
-            status = scanner.get_status()
+            status = steve.get_status()
             
-            console.print("[bold]Autonomous Scanner Status[/bold]")
+            console.print("[bold]Steve's Status[/bold]")
             console.print("=" * 40)
+            console.print(f"Identity: {status['identity']}")
+            console.print(f"Version: {status['version']}")
             console.print(f"Running: {'✓' if status['running'] else '✗'}")
-            console.print(f"Discovered Sources: {status['discovered_sources_count']}")
-            console.print(f"Crawled Domains: {status['crawled_domains_count']}")
-            console.print(f"Pending Targets: {status['pending_targets_count']}")
-            console.print(f"Learned Patterns: {status['learned_patterns_count']}")
+            console.print(f"Discovered Sources: {status['discovered_sources']}")
+            console.print(f"Crawled Domains: {status['crawled_domains']}")
+            console.print(f"Pending Targets: {status['pending_targets']}")
+            console.print(f"Learned Patterns: {status['learned_patterns']}")
+            console.print(f"Discovery Events: {status['discovery_events']}")
+            console.print(f"Total Mined: {status['mined_count']}")
+            console.print(f"Total Embedded: {status['embedded_count']}")
+            console.print(f"Today's Embeddings: {status['today_embeddings']}")
+            
+            if status['top_domains']:
+                console.print(f"Top Domains: {', '.join(status['top_domains'])}")
+            
+            if status['last_embedded'] != "None":
+                console.print(f"Last Embedded: {status['last_embedded']}")
+            
+            # Show soul configuration
+            if 'soul_config' in status:
+                console.print("\n[bold]Soul Configuration:[/bold]")
+                soul = status['soul_config']
+                if 'identity' in soul:
+                    console.print(f"Identity: {soul['identity']}")
+                if 'preferences' in soul:
+                    prefs = soul['preferences']
+                    if 'keywords' in prefs:
+                        console.print(f"Keywords: {', '.join(prefs['keywords'][:5])}...")
+                    if 'domains' in prefs:
+                        console.print(f"Domains: {', '.join(prefs['domains'][:3])}...")
+            
+            # Show soul status
+            if 'soul_status' in status:
+                soul_status = status['soul_status']
+                console.print(f"\n[bold]Soul Status:[/bold]")
+                console.print(f"Locked: {'Yes' if soul_status['is_locked'] else 'No'}")
+                console.print(f"Password Attempts: {soul_status['password_attempts']}/{soul_status['max_attempts']}")
+                if soul_status['is_locked']:
+                    console.print(f"Locked Until: {soul_status['locked_until']}")
+            
+            # Show recent searches
+            if 'last_searches' in status and status['last_searches']:
+                console.print(f"\n[bold]Recent Searches:[/bold]")
+                for search in status['last_searches'][-3:]:  # Last 3
+                    console.print(f"  • {search['query']} ({search['results_count']} results)")
+            
+            # Show recent queries
+            if 'last_queries' in status and status['last_queries']:
+                console.print(f"\n[bold]Recent Queries:[/bold]")
+                for query in status['last_queries'][-3:]:  # Last 3
+                    console.print(f"  • {query}")
         
         asyncio.run(get_scanner_status())
         
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to get scanner status: {e}")
+        console.print(f"[red]✗[/red] Failed to get Steve's status: {e}")
         raise typer.Exit(1)
 
 
-@scanner_app.command()
+@steve_app.command()
 def discover(url: str = typer.Argument(..., help="URL to discover sources from")):
-    """Manually trigger source discovery for a URL."""
+    """Manually trigger Steve to discover sources from a URL."""
     try:
         async def discover_sources():
             from .un.redis_bus import RedisBus
             from .un.knowledge_engine import KnowledgeEngine
-            from .un.autonomous_scanner import AutonomousScanner, CrawlTarget
+            from .un.autonomous_scanner import Steve, CrawlTarget
             
             config = load_config()
             redis_bus = RedisBus()
             knowledge_engine = KnowledgeEngine(redis_bus)
-            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            from .un.soul import soul
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
             
             # Setup browser
-            await scanner._setup_browser()
+            await steve._setup_browser()
             
             # Create crawl target
             target = CrawlTarget(
@@ -867,47 +975,432 @@ def discover(url: str = typer.Argument(..., help="URL to discover sources from")
             )
             
             # Crawl the target
-            await scanner._crawl_target(target)
+            await steve._crawl_target(target)
             
             console.print(f"[green]✓[/green] Discovered sources from {url}")
         
         asyncio.run(discover_sources())
         
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to discover sources: {e}")
+        console.print(f"[red]✗[/red] Failed to discover sources with Steve: {e}")
         raise typer.Exit(1)
 
 
-@scanner_app.command()
+@steve_app.command()
 def learn():
-    """Trigger learning from knowledge base."""
+    """Trigger Steve to learn from knowledge base."""
     try:
         async def learn_from_knowledge():
             from .un.redis_bus import RedisBus
             from .un.knowledge_engine import KnowledgeEngine
-            from .un.autonomous_scanner import AutonomousScanner
+            from .un.autonomous_scanner import Steve
             
             config = load_config()
             redis_bus = RedisBus()
             knowledge_engine = KnowledgeEngine(redis_bus)
-            scanner = AutonomousScanner(redis_bus, knowledge_engine, config)
+            from .un.soul import soul
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
             
             # Learn from knowledge base
-            await scanner._learn_from_knowledge_base()
+            await steve._learn_from_knowledge_base()
             
-            console.print("[green]✓[/green] Learned from knowledge base")
-            console.print(f"Learned patterns: {len(scanner.learned_patterns)}")
+            console.print("[green]✓[/green] Steve learned from knowledge base")
+            console.print(f"Learned patterns: {len(steve.learned_patterns)}")
         
         asyncio.run(learn_from_knowledge())
         
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to learn from knowledge base: {e}")
+        console.print(f"[red]✗[/red] Failed to learn from knowledge base with Steve: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def search(query: str = typer.Argument(..., help="Search query for Brave API")):
+    """Perform manual search using Brave API."""
+    try:
+        async def perform_search():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import Steve
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            from .un.soul import soul
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
+            
+            # Perform search
+            results = await steve.search_brave_api(query)
+            
+            console.print(f"[green]✓[/green] Search completed: '{query}'")
+            console.print(f"Found {len(results)} filtered results")
+            
+            for i, result in enumerate(results[:5], 1):  # Show top 5
+                console.print(f"  {i}. {result['title']}")
+                console.print(f"     {result['url']}")
+        
+        asyncio.run(perform_search())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to perform search: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def mine():
+    """Start Steve v3.1 Mine Mode - continuous knowledge mining."""
+    try:
+        async def perform_mine():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import Steve
+            from .un.soul import soul
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            
+            # Get soul configuration from main system
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
+            
+            # Start mine mode
+            await steve.start()
+            
+            console.print("[green]✓[/green] Mine Mode completed")
+        
+        asyncio.run(perform_mine())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to start Mine Mode: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def auto_search():
+    """Trigger Steve's autonomous search."""
+    try:
+        async def perform_auto_search():
+            from .un.redis_bus import RedisBus
+            from .un.knowledge_engine import KnowledgeEngine
+            from .un.autonomous_scanner import Steve
+            from .un.soul import soul
+            
+            config = load_config()
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            
+            # Get soul configuration from main system
+            soul_config = soul.get_soul("steve")
+            steve = Steve(redis_bus, knowledge_engine, config, soul_config)
+            
+            # Perform auto-search
+            await steve.auto_search()
+            
+            console.print("[green]✓[/green] Auto-search completed")
+            console.print(f"Added {len(steve.pending_targets)} new targets to queue")
+        
+        asyncio.run(perform_auto_search())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to perform auto-search: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def soul():
+    """Show soul status (read-only)."""
+    try:
+        from .un.soul import soul
+        
+        soul_status = soul.get_status()
+        
+        console.print("[bold]Soul Status[/bold]")
+        console.print("=" * 40)
+        console.print(f"Identity: {soul_status['identity']}")
+        console.print(f"Version: {soul_status['version']}")
+        console.print(f"Locked: {'Yes' if soul_status['locked'] else 'No'}")
+        console.print(f"Password Attempts: {soul_status['password_attempts']}/{soul_status['max_attempts']}")
+        console.print(f"Last Updated: {soul_status['last_updated']}")
+        console.print(f"Total Mined: {soul_status['total_mined']}")
+        console.print(f"Total Embedded: {soul_status['total_embedded']}")
+        
+        if soul_status['last_queries']:
+            console.print(f"Recent Queries: {', '.join(soul_status['last_queries'])}")
+        
+        if soul_status['last_discoveries']:
+            console.print(f"Recent Discoveries: {len(soul_status['last_discoveries'])} items")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to show soul: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def soul_edit():
+    """Edit soul (password required)."""
+    try:
+        from .un.soul import soul
+        
+        # Check if soul is locked
+        soul_status = soul.get_status()
+        if soul_status['locked']:
+            console.print(f"[red]❌[/red] Soul is locked")
+            raise typer.Exit(1)
+        
+        # Prompt for password
+        password = typer.prompt("Enter soul password", hide_input=True)
+        
+        # Verify password
+        if not soul.verify_password(password):
+            console.print(f"[red]❌[/red] Invalid password. {soul_status['max_attempts'] - soul_status['password_attempts']} attempts remaining")
+            raise typer.Exit(1)
+        
+        # Show current soul configuration
+        console.print("[bold]Current Soul Configuration[/bold]")
+        console.print("=" * 40)
+        
+        soul_config = soul.get_soul()
+        console.print(f"Identity: {soul_config['identity']}")
+        console.print(f"Version: {soul_config['version']}")
+        console.print(f"Keywords: {', '.join(soul_config['preferences']['keywords'][:5])}...")
+        console.print(f"Domains: {', '.join(soul_config['preferences']['domains'][:3])}...")
+        console.print(f"Mining Interval: {soul_config['mining']['interval']} seconds")
+        
+        console.print("\n[yellow]Note: Full soul editing interface not implemented yet[/yellow]")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to edit soul: {e}")
+        raise typer.Exit(1)
+
+@app.command()
+def mission(objective: str = typer.Argument(..., help="Mission objective for Steve")):
+    """Give Steve a mission to learn about something."""
+    try:
+        from .un.redis_bus import RedisBus
+        from .un.mission_config import MissionOrchestrator
+        from .un.autonomous_scanner import Steve
+        from .un.knowledge_engine import KnowledgeEngine
+        
+        async def execute_mission():
+            console.print(f"[blue]🚀[/blue] Creating mission: {objective}")
+            
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine(redis_bus)
+            
+            # Create Steve instance
+            config = {"mining_interval": 60}
+            steve = Steve(redis_bus, knowledge_engine, config)
+            
+            # Create mission orchestrator
+            orchestrator = MissionOrchestrator(redis_bus, steve)
+            
+            # Use Moroni to analyze the mission objective
+            console.print(f"[blue]🧠[/blue] Analyzing mission with Moroni...")
+            
+            try:
+                from .un.moroni import Moroni
+                moroni = Moroni()
+                
+                # Basic keyword extraction for initial analysis
+                words = objective.lower().split()
+                basic_keywords = [word for word in words if len(word) > 3 and word not in 
+                                ["the", "and", "for", "with", "about", "that", "this", "they", "have", "will", "from"]]
+                basic_domains = []
+                
+                # Get intelligent search strategy from Moroni
+                strategy = moroni.analyze_mission(objective, basic_keywords, basic_domains)
+                
+                keywords = strategy.primary_queries + strategy.secondary_queries
+                domains = strategy.focus_domains
+                
+                console.print(f"[green]✓[/green] Moroni analysis completed")
+                console.print(f"[blue]🧠 Moroni Strategy:[/blue]")
+                console.print(f"Primary Queries: {', '.join(strategy.primary_queries[:3])}")
+                console.print(f"Secondary Queries: {', '.join(strategy.secondary_queries[:3])}")
+                console.print(f"Focus Domains: {', '.join(strategy.focus_domains[:5])}")
+                console.print(f"Content Types: {', '.join(strategy.content_types)}")
+                console.print(f"Search Depth: {strategy.search_depth}")
+                console.print(f"Reasoning: {strategy.reasoning}")
+                
+                # Get usage stats
+                stats = moroni.get_usage_stats()
+                console.print(f"[dim]Cost: ${stats['total_cost']:.4f} ({stats['total_tokens']} tokens)[/dim]")
+                    
+            except Exception as e:
+                console.print(f"[yellow]⚠️[/yellow] Moroni analysis failed: {e}")
+                console.print(f"[dim]Using basic keyword extraction[/dim]")
+                # Fallback to simple extraction
+                words = objective.lower().split()
+                keywords = [word for word in words if len(word) > 3 and word not in 
+                           ["the", "and", "for", "with", "about", "that", "this", "they", "have", "will", "from"]]
+                domains = []
+            
+            # Check existing knowledge before creating mission
+            console.print(f"[blue]🔍[/blue] Checking existing knowledge...")
+            
+            try:
+                # Query existing embeddings for relevant content
+                from .vector_store import VectorStore
+                vector_store = VectorStore()
+                
+                # Search for existing knowledge about the mission
+                search_query = " ".join(keywords[:3])  # Use top 3 keywords
+                
+                # For now, just check if we have any embeddings at all
+                total_points = vector_store.count()
+                if total_points > 0:
+                    console.print(f"[green]✓[/green] Found {total_points} existing knowledge chunks")
+                    console.print(f"[dim]Topics already covered:[/dim]")
+                    console.print(f"  - {total_points} documents embedded in vector database")
+                else:
+                    console.print(f"[yellow]⚠️[/yellow] No existing knowledge found - starting fresh")
+                
+                # existing_results logic removed - using count instead
+                    
+            except Exception as e:
+                console.print(f"[yellow]⚠️[/yellow] Could not check existing knowledge: {e}")
+            
+            # Create mission with enhanced data
+            mission_id = orchestrator.create_mission(
+                mission_type="learning",
+                objective=objective,
+                keywords=keywords,
+                domains=domains,
+                priority=8
+            )
+            
+            console.print(f"[green]✓[/green] Mission assigned to Steve")
+            console.print(f"Objective: {objective}")
+            console.print(f"Keywords: {', '.join(keywords[:5])}")
+            console.print(f"Mission ID: {mission_id}")
+            
+            # Automatically start mining
+            console.print(f"\n[blue]🚀[/blue] Starting automatic mining for: {objective}")
+            
+            try:
+                # Start Steve's mining process
+                await steve.start()
+                console.print(f"[green]✓[/green] Mining process started successfully")
+                console.print(f"[dim]Steve is now actively learning about: {objective}[/dim]")
+                
+            except Exception as e:
+                console.print(f"[yellow]⚠️[/yellow] Could not start mining automatically: {e}")
+                console.print(f"[dim]Run '42 steve mine' manually to start mining[/dim]")
+        
+        asyncio.run(execute_mission())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to create mission: {e}")
+        raise typer.Exit(1)
+
+
+@steve_app.command()
+def mission_list():
+    """List all active missions."""
+    try:
+        from .un.redis_bus import RedisBus
+        from .un.mission_config import MissionOrchestrator
+        from .un.autonomous_scanner import Steve
+        from .un.knowledge_engine import KnowledgeEngine
+        
+        async def list_missions():
+            redis_bus = RedisBus()
+            knowledge_engine = KnowledgeEngine()
+            
+            # Create Steve instance
+            config = {"mining_interval": 60}
+            steve = Steve(redis_bus, knowledge_engine, config)
+            
+            # Create mission orchestrator
+            orchestrator = MissionOrchestrator(redis_bus, steve)
+            
+            missions = orchestrator.get_active_missions()
+            
+            console.print("[bold]Active Missions[/bold]")
+            console.print(f"Total missions: {len(missions)}")
+            
+            for mission in missions:
+                console.print(f"\n[bold]{mission['id']}[/bold]")
+                console.print(f"  Type: {mission['type']}")
+                console.print(f"  Objective: {mission['objective']}")
+                console.print(f"  Priority: {mission['priority']}")
+                console.print(f"  Keywords: {', '.join(mission['keywords'])}")
+                console.print(f"  Domains: {', '.join(mission['domains'])}")
+                console.print(f"  Expires: {mission['expires_at']}")
+        
+        asyncio.run(list_missions())
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to list missions: {e}")
+        raise typer.Exit(1)
+
+
+@steve_app.command()
+def tail(
+    filter_domain: str = typer.Option(None, "--filter", "-f", help="Filter by domain"),
+    filter_keyword: str = typer.Option(None, "--keyword", "-k", help="Filter by keyword")
+):
+    """Tail embedding log with optional filters."""
+    try:
+        from pathlib import Path
+        import subprocess
+        
+        log_file = Path("/var/log/42/embedding.log")
+        
+        if not log_file.exists():
+            console.print("[yellow]No embedding log found. Run '42 steve mine' first.[/yellow]")
+            return
+        
+        # Build tail command
+        cmd = ["tail", "-f", str(log_file)]
+        
+        # Add filters if specified
+        if filter_domain:
+            cmd.extend(["|", "grep", filter_domain])
+        elif filter_keyword:
+            cmd.extend(["|", "grep", filter_keyword])
+        
+        console.print(f"[bold]Tailing embedding log...[/bold]")
+        console.print(f"Log file: {log_file}")
+        if filter_domain:
+            console.print(f"Filter: domain={filter_domain}")
+        elif filter_keyword:
+            console.print(f"Filter: keyword={filter_keyword}")
+        console.print("=" * 50)
+        
+        # Run tail command
+        subprocess.run(cmd)
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to tail embedding log: {e}")
+        raise typer.Exit(1)
+
+@steve_app.command()
+def unlock_status():
+    """Show soul lock status."""
+    try:
+        from .un.soul import soul
+        
+        soul_status = soul.get_status()
+        
+        console.print("[bold]Soul Lock Status[/bold]")
+        console.print("=" * 40)
+        
+        if soul_status['locked']:
+            console.print(f"[red]❌ LOCKED[/red]")
+            console.print("Soul is locked for 1000 years due to failed password attempts")
+            console.print("The system will continue to function with default settings")
+        else:
+            console.print(f"[green]✓ UNLOCKED[/green]")
+            console.print(f"Password Attempts: {soul_status['password_attempts']}/{soul_status['max_attempts']}")
+            console.print("Soul is ready for editing")
+        
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to get unlock status: {e}")
         raise typer.Exit(1)
 
 
 def main():
     """Main CLI entry point."""
-    app.add_typer(scanner_app, name="scanner")
+    app.add_typer(steve_app, name="steve")
     app()
 
 

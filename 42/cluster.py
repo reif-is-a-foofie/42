@@ -67,10 +67,10 @@ class ClusteringEngine:
                 if label == -1:  # Noise points
                     continue
                 
-                # Create chunk object
+                # Create chunk object with safe field access
                 chunk = Chunk(
-                    text=vector_data["text"],
-                    file_path=vector_data["file_path"],
+                    text=vector_data.get("text", ""),
+                    file_path=vector_data.get("file_path", ""),
                     start_line=vector_data.get("start_line", 0),
                     end_line=vector_data.get("end_line", 0),
                     cluster_id=label,
@@ -102,12 +102,15 @@ class ClusteringEngine:
             logger.info(f"Updating {len(all_vectors)} vectors with cluster IDs...")
             for i, (vector_data, label) in enumerate(zip(all_vectors, cluster_labels)):
                 # Update payload with cluster ID
-                updated_payload = vector_data.copy()
+                updated_payload = {k: v for k, v in vector_data.items() if k != 'vector'}  # Remove vector from payload
                 updated_payload["cluster_id"] = int(label)
+                
+                # Get the actual point ID from the vector data
+                point_id = vector_data.get('id', i)
                 
                 # Update in vector store
                 self.vector_store.update_payload(
-                    vector_id=i,
+                    point_id=point_id,  # Use actual point ID
                     payload=updated_payload
                 )
             

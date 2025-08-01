@@ -6,6 +6,11 @@ disaster relief, and crisis anticipation aligned with the mission of serving
 those in need.
 """
 
+import time
+from datetime import datetime
+from typing import Dict, List, Any
+from loguru import logger
+
 # GitHub Repositories - Deployable Tech Intelligence
 GITHUB_MISSION_REPOS = {
     "disaster_mapping": [
@@ -157,4 +162,135 @@ MISSION_CONFIG = {
             "algorithm": "sha256"
         }
     }
-} 
+}
+
+# Mission Orchestrator - Calls Steve with objectives
+class MissionOrchestrator:
+    """Orchestrates missions by calling Steve with specific objectives."""
+    
+    def __init__(self, redis_bus, steve_instance):
+        self.redis_bus = redis_bus
+        self.steve = steve_instance
+        self.active_missions = []
+        
+    def create_mission(self, mission_type: str, objective: str, 
+                      keywords: List[str] = None, domains: List[str] = None,
+                      priority: int = 5) -> str:
+        """Create a mission and immediately assign it to Steve."""
+        
+        mission = {
+            "id": f"mission_{int(time.time())}",
+            "type": mission_type,
+            "objective": objective,
+            "keywords": keywords or [],
+            "domains": domains or [],
+            "priority": priority,
+            "created_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        
+        # Add to active missions
+        self.active_missions.append(mission)
+        
+        # Call Steve with this mission
+        self._assign_mission_to_steve(mission)
+        
+        # Publish event
+        from .events import Event, EventType
+        try:
+            event = Event(
+                event_type=EventType.KNOWLEDGE_ADDED,
+                source_id=mission["id"],
+                data=mission
+            )
+            self.redis_bus.publish_event(event)
+        except Exception as e:
+            logger.warning(f"Failed to publish mission event: {e}")
+        
+        logger.info(f"Created and assigned mission: {mission['id']} - {objective}")
+        return mission["id"]
+    
+    def _assign_mission_to_steve(self, mission: Dict[str, Any]):
+        """Assign mission to Steve by updating its search parameters."""
+        
+        try:
+            # Import the soul system
+            from ..soul import soul
+            
+            # Prepare soul updates
+            soul_updates = {
+                "preferences": {
+                    "keywords": mission.get("keywords", []),
+                    "domains": mission.get("domains", [])
+                },
+                "current_mission": {
+                    "id": mission["id"],
+                    "objective": mission["objective"],
+                    "type": mission["type"],
+                    "priority": mission["priority"]
+                }
+            }
+            
+            # Update soul using the soul system (bypass password for internal updates)
+            soul.soul.update(soul_updates)
+            soul.soul["last_updated"] = datetime.now().isoformat()
+            soul._save_soul(soul.soul)
+            
+            # Also update Steve's in-memory soul
+            if "preferences" not in self.steve.soul:
+                self.steve.soul["preferences"] = {}
+            
+            self.steve.soul["preferences"]["keywords"] = mission.get("keywords", [])
+            self.steve.soul["preferences"]["domains"] = mission.get("domains", [])
+            
+            if "current_mission" not in self.steve.soul:
+                self.steve.soul["current_mission"] = {}
+            
+            self.steve.soul["current_mission"] = {
+                "id": mission["id"],
+                "objective": mission["objective"],
+                "type": mission["type"],
+                "priority": mission["priority"]
+            }
+            
+            logger.info(f"Assigned mission {mission['id']} to Steve")
+            logger.info(f"Steve will now search for: {mission['objective']}")
+            logger.info(f"Keywords: {mission.get('keywords', [])}")
+            logger.info(f"Domains: {mission.get('domains', [])}")
+            
+        except Exception as e:
+            logger.error(f"Failed to assign mission to Steve: {e}")
+            # Fallback to just updating Steve's in-memory soul
+            if "preferences" not in self.steve.soul:
+                self.steve.soul["preferences"] = {}
+            
+            self.steve.soul["preferences"]["keywords"] = mission.get("keywords", [])
+            self.steve.soul["preferences"]["domains"] = mission.get("domains", [])
+            
+            if "current_mission" not in self.steve.soul:
+                self.steve.soul["current_mission"] = {}
+            
+            self.steve.soul["current_mission"] = {
+                "id": mission["id"],
+                "objective": mission["objective"],
+                "type": mission["type"],
+                "priority": mission["priority"]
+            }
+    
+    def get_active_missions(self) -> List[Dict[str, Any]]:
+        """Get all active missions."""
+        return self.active_missions
+    
+    def clear_missions(self):
+        """Clear all missions and reset Steve to default state."""
+        self.active_missions = []
+        
+        # Reset Steve's soul to defaults
+        if "preferences" in self.steve.soul:
+            self.steve.soul["preferences"]["keywords"] = []
+            self.steve.soul["preferences"]["domains"] = []
+        
+        if "current_mission" in self.steve.soul:
+            del self.steve.soul["current_mission"]
+        
+        logger.info("Cleared all missions - Steve reset to default state") 

@@ -91,9 +91,18 @@ class VectorStore:
         try:
             results = self.client.scroll(
                 collection_name=self.collection_name,
-                limit=10000  # Adjust as needed
+                limit=10000,  # Adjust as needed
+                with_vectors=True  # Include the actual vectors
             )
-            return [point.payload for point in results[0]]
+            
+            vectors_data = []
+            for point in results[0]:
+                data = point.payload.copy()
+                data['vector'] = point.vector  # Add the actual vector
+                data['id'] = point.id  # Add the point ID
+                vectors_data.append(data)
+            
+            return vectors_data
         except Exception as e:
             logger.error(f"Failed to get all vectors: {e}")
             raise
@@ -142,4 +151,56 @@ class VectorStore:
                 return 0
         except Exception as e:
             logger.error(f"Failed to get total points: {e}")
-            return 0 
+            return 0
+    
+    def count(self, collection_name: str = None) -> int:
+        """Get count of points in collection (alias for get_total_points)."""
+        return self.get_total_points()
+    
+    def search_by_url(self, url: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search for points by URL in payload."""
+        try:
+            # Create a filter to search by URL
+            filter_condition = Filter(
+                must=[
+                    FieldCondition(
+                        key="url",
+                        match=MatchValue(value=url)
+                    )
+                ]
+            )
+            
+            results = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filter_condition,
+                limit=limit
+            )
+            
+            return [point.payload for point in results[0]]
+        except Exception as e:
+            logger.error(f"Failed to search by URL: {e}")
+            return []
+    
+    def search_semantic(self, query_embedding: List[float], limit: int = 10) -> List[Dict[str, Any]]:
+        """Search for semantically similar documents using vector similarity."""
+        try:
+            results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_embedding,
+                limit=limit,
+                with_payload=True
+            )
+            
+            # Convert to list of dictionaries with payload
+            similar_docs = []
+            for result in results:
+                doc = result.payload.copy()
+                doc['similarity_score'] = result.score
+                similar_docs.append(doc)
+            
+            logger.info(f"Found {len(similar_docs)} semantically similar documents")
+            return similar_docs
+            
+        except Exception as e:
+            logger.error(f"Failed to search semantically: {e}")
+            return [] 

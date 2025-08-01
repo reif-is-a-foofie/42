@@ -1226,9 +1226,9 @@ class Steve:
         """Add discovered source directly to vector database."""
         try:
             # Import 42.zero components for direct vector storage
-            from ..chunker import Chunker
-            from ..embedding import EmbeddingEngine
-            from ..vector_store import VectorStore
+            from ...chunker import Chunker
+            from ...embedding import EmbeddingEngine
+            from ...vector_store import VectorStore
             from qdrant_client.models import PointStruct
             import tempfile
             import os

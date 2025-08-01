@@ -10,12 +10,22 @@ from .config import load_config
 class EmbeddingEngine:
     """Wraps sentence-transformers for text embedding."""
     
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls, model_name: str = None):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self, model_name: str = None):
-        """Initialize the embedding engine."""
-        config = load_config()
-        self.model_name = model_name or config.embedding_model
-        self.model = None
-        self._load_model()
+        """Initialize the embedding engine (singleton)."""
+        if not self._initialized:
+            config = load_config()
+            self.model_name = model_name or config.embedding_model
+            self.model = None
+            self._load_model()
+            EmbeddingEngine._initialized = True
     
     def _load_model(self) -> None:
         """Load the sentence transformer model."""
