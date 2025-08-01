@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from celery import Celery
 from loguru import logger
 
-from .config import load_config
+from ..utils.config import load_config
 
 
 # Initialize Celery
@@ -89,7 +89,7 @@ def extract_github_repository(self, repo_url: str, max_workers: Optional[int] = 
 def recluster_vectors(self, min_cluster_size: int = 5, min_samples: int = 3) -> Dict[str, Any]:
     """Recluster all vectors using HDBSCAN."""
     try:
-        from .cluster import ClusteringEngine
+        from ..core.cluster import ClusteringEngine
         
         # Update task state
         self.update_state(
@@ -147,9 +147,9 @@ def recluster_vectors(self, min_cluster_size: int = 5, min_samples: int = 3) -> 
 def import_data(self, path: str) -> Dict[str, Any]:
     """Import data from file or directory."""
     try:
-        from .chunker import Chunker
-        from .embedding import EmbeddingEngine
-        from .vector_store import VectorStore
+        from ..core.chunker import Chunker
+        from ..core.embedding import EmbeddingEngine
+        from ..core.vector_store import VectorStore
         from qdrant_client.models import PointStruct
         
         # Update task state

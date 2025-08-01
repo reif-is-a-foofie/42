@@ -6,7 +6,7 @@ from loguru import logger
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-from .interfaces import Chunk, Cluster
+from ..utils.interfaces import Chunk, Cluster
 from .vector_store import VectorStore
 
 

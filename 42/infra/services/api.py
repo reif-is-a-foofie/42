@@ -7,13 +7,13 @@ from typing import List, Dict, Optional, Any
 import uvicorn
 from loguru import logger
 
-from .config import load_config
-from .embedding import EmbeddingEngine
-from .vector_store import VectorStore
-from .chunker import Chunker
+from ..utils.config import load_config
+from ..core.embedding import EmbeddingEngine
+from ..core.vector_store import VectorStore
+from ..core.chunker import Chunker
 from .github import GitHubExtractor
-from .llm import LLMEngine
-from .cluster import ClusteringEngine
+from ..core.llm import LLMEngine
+from ..core.cluster import ClusteringEngine
 
 
 # Pydantic models

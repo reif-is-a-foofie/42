@@ -673,12 +673,12 @@ class Steve:
         """Search existing embeddings semantically for the mission objective."""
         try:
             # Embed the mission objective
-            from ..embedding import EmbeddingEngine
+            from ...infra.core.embedding import EmbeddingEngine
             embedding_engine = EmbeddingEngine()
             mission_embedding = embedding_engine.embed_text(mission_objective)
             
             # Search for semantically similar content
-            from ..vector_store import VectorStore
+            from ...infra.core.vector_store import VectorStore
             vs = VectorStore()
             similar_docs = vs.search_semantic(mission_embedding, limit=20)
             
@@ -1226,9 +1226,9 @@ class Steve:
         """Add discovered source directly to vector database."""
         try:
             # Import 42.zero components for direct vector storage
-            from ...chunker import Chunker
-            from ...embedding import EmbeddingEngine
-            from ...vector_store import VectorStore
+            from ...infra.core.chunker import Chunker
+            from ...infra.core.embedding import EmbeddingEngine
+            from ...infra.core.vector_store import VectorStore
             from qdrant_client.models import PointStruct
             import tempfile
             import os
@@ -1320,7 +1320,7 @@ This content was automatically mined by Steve v4.0 from: {source.url}"""
                         
                         # Verify the upsert worked by checking collection size
                         try:
-                            from ..vector_store import VectorStore
+                            from ...infra.core.vector_store import VectorStore
                             vs = VectorStore()
                             collection_size = vs.count("42_chunks")
                             logger.info(f"📊 Vector database now contains {collection_size} total chunks")
@@ -1378,7 +1378,7 @@ This content was automatically mined by Steve v4.0 from: {source.url}"""
         
         # Check if URL already exists in vector database
         try:
-            from ..vector_store import VectorStore
+            from ...infra.core.vector_store import VectorStore
             vs = VectorStore()
             
             # Search for existing embeddings with this URL
@@ -1415,12 +1415,12 @@ This content was automatically mined by Steve v4.0 from: {source.url}"""
         
         try:
             # Embed the mission objective
-            from ..embedding import EmbeddingEngine
+            from ...infra.core.embedding import EmbeddingEngine
             embedding_engine = EmbeddingEngine()
             mission_embedding = embedding_engine.embed_text(mission_objective)
             
             # Search for semantically similar content in existing embeddings
-            from ..vector_store import VectorStore
+            from ...infra.core.vector_store import VectorStore
             vs = VectorStore()
             
             # Find top semantically similar documents
@@ -1558,7 +1558,7 @@ This content was automatically mined by Steve v4.0 from: {source.url}"""
     async def _get_recent_high_scored_embeddings(self) -> List[Dict[str, Any]]:
         """Get recent high-scored embeddings from vector store."""
         try:
-            from ..vector_store import VectorStore
+            from ...infra.core.vector_store import VectorStore
             vs = VectorStore()
             
             # Get recent embeddings from the vector store
@@ -1738,7 +1738,7 @@ This content was automatically mined by Steve v4.0 from: {source.url}"""
     def _store_query_in_database(self, query: str):
         """Store a query in the database for tracking."""
         try:
-            from ..vector_store import VectorStore
+            from ...infra.core.vector_store import VectorStore
             vs = VectorStore()
             
             # Create a simple query log entry

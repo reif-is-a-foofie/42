@@ -4,7 +4,7 @@ from typing import List
 from loguru import logger
 from sentence_transformers import SentenceTransformer
 
-from .config import load_config
+from ..utils.config import load_config
 
 
 class EmbeddingEngine:

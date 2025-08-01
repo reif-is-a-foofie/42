@@ -12,10 +12,7 @@ from datetime import datetime
 import openai
 from loguru import logger
 
-try:
-    from .config import load_config
-except ImportError:
-    from ...config import load_config
+from ..infra.utils.config import load_config
 
 
 @dataclass

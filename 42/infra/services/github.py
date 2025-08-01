@@ -13,10 +13,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 import tqdm
 
-from .chunker import Chunker
-from .embedding import EmbeddingEngine
-from .vector_store import VectorStore
-from .interfaces import Chunk
+from ..core.chunker import Chunker
+from ..core.embedding import EmbeddingEngine
+from ..core.vector_store import VectorStore
+from ..utils.interfaces import Chunk
 # JobManager removed - using Celery for job management
 
 

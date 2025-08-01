@@ -6,10 +6,10 @@ import json
 from typing import List, Dict, Optional
 from loguru import logger
 
-from .interfaces import SearchResult
+from ..utils.interfaces import SearchResult
 from .vector_store import VectorStore
 from .embedding import EmbeddingEngine
-from .prompt import PromptBuilder
+# Import PromptBuilder only when needed to avoid circular import
 
 
 class LLMEngine:
@@ -20,13 +20,17 @@ class LLMEngine:
         self.base_url = base_url
         self.vector_store = VectorStore()
         self.embedding_engine = EmbeddingEngine()
-        self.prompt_builder = PromptBuilder()
+        # Initialize prompt builder when needed
+        self.prompt_builder = None
         
     def query(self, question: str, model: str = "llama3.2", 
               top_k: int = 3, max_tokens: int = 2000) -> Dict:
         """Query the LLM with context from vector store."""
         try:
             # Build prompt with relevant context
+            if self.prompt_builder is None:
+                from ..services.prompt import PromptBuilder
+                self.prompt_builder = PromptBuilder()
             prompt = self.prompt_builder.build_prompt(question, top_k, max_tokens)
             
             # Query Ollama

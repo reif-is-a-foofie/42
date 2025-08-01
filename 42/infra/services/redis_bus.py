@@ -11,7 +11,7 @@ from typing import Dict, List, Callable, Optional, Any
 from datetime import datetime, timedelta
 from loguru import logger
 
-from .events import Event, EventType
+from ..utils.events import Event, EventType
 
 
 class RedisBus:

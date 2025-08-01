@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 from loguru import logger
 
-from .interfaces import Chunk
+from ..utils.interfaces import Chunk
 
 
 class Chunker:

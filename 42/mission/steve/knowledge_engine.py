@@ -484,9 +484,9 @@ class KnowledgeEngine:
         
         try:
             # Use existing 42.zero import functionality directly
-            from ..chunker import Chunker
-            from ..embedding import EmbeddingEngine
-            from ..vector_store import VectorStore
+            from ...infra.core.chunker import Chunker
+from ...infra.core.embedding import EmbeddingEngine
+            from ...infra.core.vector_store import VectorStore
             from qdrant_client.models import PointStruct
             import tempfile
             import os

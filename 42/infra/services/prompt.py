@@ -3,9 +3,9 @@
 from typing import List, Optional
 from loguru import logger
 
-from .interfaces import SearchResult
-from .vector_store import VectorStore
-from .embedding import EmbeddingEngine
+from ..utils.interfaces import SearchResult
+from ..core.vector_store import VectorStore
+from ..core.embedding import EmbeddingEngine
 
 
 class PromptBuilder:

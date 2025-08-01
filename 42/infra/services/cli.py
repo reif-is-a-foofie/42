@@ -13,13 +13,13 @@ from rich.syntax import Syntax
 from rich.prompt import Confirm, Prompt
 from loguru import logger
 
-from .config import load_config, save_config
-from .embedding import EmbeddingEngine
-from .vector_store import VectorStore
-from .chunker import Chunker
+from ..utils.config import load_config, save_config
+from ..core.embedding import EmbeddingEngine
+from ..core.vector_store import VectorStore
+from ..core.chunker import Chunker
 from .github import GitHubExtractor
-from .llm import LLMEngine
-from .cluster import ClusteringEngine
+from ..core.llm import LLMEngine
+from ..core.cluster import ClusteringEngine
 from .jobs import get_task_status, list_tasks, extract_github_repository, recluster_vectors, import_data
 from .api import run_server
 # Import heavy components only when needed
@@ -933,7 +933,7 @@ def status():
         
         # Check vector database
         try:
-            from .vector_store import VectorStore
+            from ..core.vector_store import VectorStore
             vs = VectorStore()
             total_points = vs.get_total_points()
             console.print(f"[blue]ℹ[/blue] Vector DB: {total_points} documents stored")
@@ -1360,7 +1360,7 @@ def mission(objective: str = typer.Argument(..., help="Mission objective for Ste
             
             try:
                 # Query existing embeddings for relevant content
-                from .vector_store import VectorStore
+                from ..core.vector_store import VectorStore
                 vector_store = VectorStore()
                 
                 # Search for existing knowledge about the mission

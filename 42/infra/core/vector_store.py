@@ -5,8 +5,8 @@ from loguru import logger
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 
-from .interfaces import SearchResult, Chunk
-from .config import load_config
+from ..utils.interfaces import SearchResult, Chunk
+from ..utils.config import load_config
 
 
 class VectorStore:
