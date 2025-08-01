@@ -17,7 +17,7 @@ from .chunker import Chunker
 from .embedding import EmbeddingEngine
 from .vector_store import VectorStore
 from .interfaces import Chunk
-from .job_manager import JobManager
+# JobManager removed - using Celery for job management
 
 
 class GitHubExtractor:
@@ -29,7 +29,7 @@ class GitHubExtractor:
         self.embedding_engine = EmbeddingEngine()
         self.vector_store = VectorStore()
         self.max_workers = max_workers or min(max(4, os.cpu_count()), 12)  # Auto-detect with 4-12 range
-        self.job_manager = JobManager()
+        # Job management now handled by Celery
         self.verbose = verbose
         self.dump_embeddings_path = dump_embeddings_path
         # Embedding dump is now handled directly in _stream_to_vector_db
@@ -405,54 +405,29 @@ class GitHubExtractor:
     
     def _analyze_repository_background(self, repo_url: str, 
                                       progress_callback: Optional[Callable] = None) -> Dict:
-        """Start repository analysis in background thread."""
-        job_id = self.job_manager.create_job("github_extract", repo_url=repo_url)
+        """Start repository analysis using Celery."""
+        from .jobs import extract_github_repository
         
-        def background_worker():
-            try:
-                self.job_manager.update_job(job_id, status="running", started_at=time.time())
-                result = self._analyze_repository_sync_optimized(repo_url, progress_callback)
-                self.job_manager.update_job(job_id, 
-                                          status="completed", 
-                                          result=result, 
-                                          completed_at=time.time())
-            except Exception as e:
-                self.job_manager.update_job(job_id, 
-                                          status="failed", 
-                                          error=str(e), 
-                                          completed_at=time.time())
+        # Start Celery task
+        task = extract_github_repository.delay(repo_url, self.max_workers)
         
-        # Start background thread
-        thread = threading.Thread(target=background_worker, daemon=True)
-        thread.start()
-        
-        logger.info(f"Started background analysis for {repo_url} (job_id: {job_id})")
+        logger.info(f"Started background analysis for {repo_url} (task_id: {task.id})")
         
         return {
-            "job_id": job_id,
+            "job_id": task.id,
             "status": "started",
             "repo_url": repo_url
         }
     
     def get_job_status(self, job_id: str) -> Dict:
-        """Get status of a background job."""
-        job = self.job_manager.get_job(job_id)
-        if not job:
-            return {"status": "not_found"}
-        
-        if job["status"] == "running":
-            elapsed = time.time() - job.get("started_at", time.time())
-            return {
-                "status": "running",
-                "elapsed_time": elapsed,
-                "repo_url": job.get("repo_url", "unknown")
-            }
-        else:
-            return job
+        """Get status of a background job using Celery."""
+        from .jobs import get_task_status
+        return get_task_status(job_id)
     
     def list_background_jobs(self) -> Dict:
-        """List all background jobs."""
-        return self.job_manager.list_jobs("github_extract")
+        """List all background jobs using Celery."""
+        from .jobs import list_tasks
+        return list_tasks()
     
     def search_patterns(self, query: str, limit: int = 10) -> List[Dict]:
         """Search for similar code patterns."""

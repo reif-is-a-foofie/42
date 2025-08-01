@@ -5,6 +5,10 @@
 - ✅ Organized architecture: `42/moroni/`, `42/mission/steve/`, `42/soul/`
 - ✅ Updated imports and module structure
 - ✅ Created clean README reflecting new architecture
+- ✅ Removed redundant job_manager.py (replaced with Celery)
+- ✅ Removed old 42_jobs.json (replaced with Redis backend)
+- ✅ Cleaned up duplicate autonomous_scanner.py files
+- ✅ Removed old un/ directory structure
 
 ## 🚀 **Current Phase: Phase deux - Advanced optimization**
 
