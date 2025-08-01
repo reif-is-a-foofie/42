@@ -22,12 +22,124 @@ from ..core.llm import LLMEngine
 from ..core.cluster import ClusteringEngine
 from .jobs import get_task_status, list_tasks, extract_github_repository, recluster_vectors, import_data
 from .api import run_server
+from ...moroni.moroni import Moroni, ConversationContext, KnowledgeResponse
 # Import heavy components only when needed
 # from .un.knowledge_engine import KnowledgeEngine, KnowledgeSource, SourceType, DomainType
 # from .un.redis_bus import RedisBus
 
 app = typer.Typer()
 console = Console()
+
+
+@app.command()
+def chat():
+    """Start interactive chat with 42 using Moroni brain.
+    
+    Provides intelligent conversation with knowledge integration and tool execution.
+    """
+    console.print(Panel.fit(
+        "[bold blue]42 Chat Agent[/bold blue]\n"
+        "[dim]Powered by Moroni - The AI-Agnostic NLP Brain[/dim]\n\n"
+        "Type your questions or requests. I can:\n"
+        "• Answer questions using my knowledge base\n"
+        "• Search for information\n"
+        "• Help you learn new topics\n"
+        "• Create and manage missions\n"
+        "• Check system status\n\n"
+        "Commands:\n"
+        "• 'switch to openai' - Switch to OpenAI provider\n"
+        "• 'switch to ollama' - Switch to Ollama provider\n"
+        "• 'status' - Show current AI provider and usage\n"
+        "• 'quit' or 'exit' - End conversation",
+        title="🤖 42 Chat"
+    ))
+    
+    # Initialize Moroni
+    try:
+        moroni = Moroni()
+        console.print(f"[green]✓[/green] Moroni brain initialized (Provider: {moroni.primary_provider})")
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to initialize Moroni: {e}")
+        raise typer.Exit(1)
+    
+    # Initialize conversation context
+    context = ConversationContext(
+        user_id="cli_user",
+        conversation_history=[],
+        current_mission=None,
+        knowledge_base=[],
+        tools_available=list(moroni.tools.keys())
+    )
+    
+    # Chat loop
+    while True:
+        try:
+            # Get user input
+            user_input = Prompt.ask("\n[bold cyan]You[/bold cyan]")
+            
+            if user_input.lower() in ['quit', 'exit', 'bye']:
+                console.print("\n[dim]Goodbye! Thanks for chatting with 42.[/dim]")
+                break
+            
+            if not user_input.strip():
+                continue
+            
+            # Handle special commands
+            if user_input.lower().startswith('switch to '):
+                provider = user_input.lower().replace('switch to ', '').strip()
+                if moroni.switch_provider(provider):
+                    console.print(f"[green]✓[/green] Switched to {provider} provider")
+                else:
+                    console.print(f"[red]✗[/red] Provider {provider} not available")
+                continue
+            
+            if user_input.lower() == 'status':
+                stats = moroni.get_usage_stats()
+                console.print(f"\n[bold]AI Provider Status:[/bold]")
+                console.print(f"• Current: {stats['current_provider']}")
+                console.print(f"• Primary: {stats['primary_provider']}")
+                console.print(f"• Fallback: {stats['fallback_provider']}")
+                console.print(f"• Tokens used: {stats['total_tokens']}")
+                console.print(f"• Cost: ${stats['total_cost']:.4f}")
+                continue
+            
+            # Process request with Moroni
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+                transient=True
+            ) as progress:
+                task = progress.add_task("🧠 Moroni is thinking...", total=None)
+                
+                response = moroni.process_request(user_input, context)
+                
+                # Update conversation history
+                context.conversation_history.append({
+                    "user": user_input,
+                    "assistant": response.response
+                })
+            
+            # Display response
+            console.print(f"\n[bold blue]42[/bold blue] {response.response}")
+            
+            # Show provider and confidence
+            console.print(f"[dim]AI Provider: {response.ai_provider}[/dim]")
+            
+            if response.confidence < 0.7:
+                console.print(f"[dim]Confidence: {response.confidence:.2f}[/dim]")
+            
+            if response.tools_used:
+                console.print(f"[dim]Tools used: {', '.join(response.tools_used)}[/dim]")
+            
+            if response.sources:
+                console.print(f"[dim]Sources: {len(response.sources)} relevant items found[/dim]")
+            
+        except KeyboardInterrupt:
+            console.print("\n[dim]Chat interrupted. Type 'quit' to exit.[/dim]")
+        except Exception as e:
+            console.print(f"\n[red]Error: {e}[/red]")
+            logger.error(f"Chat error: {e}")
 
 
 @app.command()

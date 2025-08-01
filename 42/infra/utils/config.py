@@ -24,6 +24,20 @@ class Config(BaseSettings):
     redis_host: str = Field(default="localhost", env="42_REDIS_HOST")
     redis_port: int = Field(default=6379, env="42_REDIS_PORT")
     
+    # AI Provider settings
+    ai_provider: str = Field(default="ollama", env="42_AI_PROVIDER")  # "openai", "ollama", "anthropic"
+    ai_model: str = Field(default="llama3.2", env="42_AI_MODEL")
+    ai_fallback_provider: str = Field(default="ollama", env="42_AI_FALLBACK_PROVIDER")
+    ai_fallback_model: str = Field(default="llama3.2", env="42_AI_FALLBACK_MODEL")
+    
+    # OpenAI settings
+    openai_api_key: str = Field(default="", env="OPENAI_API_KEY")
+    openai_model: str = Field(default="gpt-3.5-turbo", env="42_OPENAI_MODEL")
+    
+    # Anthropic settings
+    anthropic_api_key: str = Field(default="", env="ANTHROPIC_API_KEY")
+    anthropic_model: str = Field(default="claude-3-haiku", env="42_ANTHROPIC_MODEL")
+    
     # Embedding settings
     embedding_model: str = Field(default="BAAI/bge-small-en", env="42_EMBEDDING_MODEL")
     embedding_dimension: int = Field(default=384, env="42_EMBEDDING_DIMENSION")
@@ -48,6 +62,13 @@ class Config(BaseSettings):
         if v.upper() not in valid_levels:
             raise ValueError(f'log_level must be one of {valid_levels}')
         return v.upper()
+    
+    @validator('ai_provider', 'ai_fallback_provider')
+    def validate_ai_provider(cls, v):
+        valid_providers = ['openai', 'ollama', 'anthropic']
+        if v.lower() not in valid_providers:
+            raise ValueError(f'ai_provider must be one of {valid_providers}')
+        return v.lower()
     
     @validator('qdrant_port', 'ollama_port', 'redis_port')
     def validate_ports(cls, v):
