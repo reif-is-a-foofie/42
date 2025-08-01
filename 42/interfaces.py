@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 
-@dataclass
+@dataclass(frozen=True)
 class Chunk:
     """Represents a chunk of text with metadata."""
     text: str
@@ -16,7 +16,7 @@ class Chunk:
     metadata: Optional[Dict[str, Any]] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class SearchResult:
     """Represents a search result from the vector store."""
     text: str
@@ -25,7 +25,7 @@ class SearchResult:
     metadata: Optional[Dict[str, Any]] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class Cluster:
     """Represents a cluster of similar chunks."""
     cluster_id: int
@@ -34,7 +34,7 @@ class Cluster:
     size: int = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class Config:
     """Configuration for 42 system."""
     qdrant_host: str = "localhost"

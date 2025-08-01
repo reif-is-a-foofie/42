@@ -13,7 +13,7 @@ from .vector_store import VectorStore
 from .chunker import Chunker
 from .github import GitHubExtractor
 from .llm import LLMEngine
-# from .cluster import ClusteringEngine  # TODO: implement clustering
+from .cluster import ClusteringEngine
 
 
 # Pydantic models
@@ -86,19 +86,34 @@ app.add_middleware(
 )
 
 
-# Initialize components
-try:
-    config = load_config()
-    embedding_engine = EmbeddingEngine()
-    vector_store = VectorStore()
-    chunker = Chunker()
-    github_extractor = GitHubExtractor()
-    llm_engine = LLMEngine()
-    # clustering_engine = ClusteringEngine()  # TODO: implement clustering
-    logger.info("All components initialized successfully")
-except Exception as e:
-    logger.error(f"Failed to initialize components: {e}")
-    raise
+# Component factory functions to avoid global state
+def get_config():
+    """Get configuration instance."""
+    return load_config()
+
+def get_embedding_engine():
+    """Get embedding engine instance."""
+    return EmbeddingEngine()
+
+def get_vector_store():
+    """Get vector store instance."""
+    return VectorStore()
+
+def get_chunker():
+    """Get chunker instance."""
+    return Chunker()
+
+def get_github_extractor():
+    """Get GitHub extractor instance."""
+    return GitHubExtractor()
+
+def get_llm_engine():
+    """Get LLM engine instance."""
+    return LLMEngine()
+
+def get_clustering_engine():
+    """Get clustering engine instance."""
+    return ClusteringEngine()
 
 
 @app.get("/")
@@ -111,6 +126,9 @@ async def root():
 async def ask_question(request: QueryRequest):
     """Ask a question about the codebase."""
     try:
+        # Get component instance
+        llm_engine = get_llm_engine()
+        
         result = llm_engine.query(
             request.question, 
             request.model, 
@@ -138,6 +156,11 @@ async def import_file(file: UploadFile = File(...)):
         # Read file content
         content = await file.read()
         text = content.decode('utf-8')
+        
+        # Get component instances  
+        chunker = get_chunker()
+        embedding_engine = get_embedding_engine()
+        vector_store = get_vector_store()
         
         # Chunk the file
         chunks = chunker.chunk_text(text, file.filename)
@@ -187,6 +210,11 @@ async def import_file(file: UploadFile = File(...)):
 async def import_folder(path: str):
     """Import a folder recursively."""
     try:
+        # Get component instances
+        chunker = get_chunker()
+        embedding_engine = get_embedding_engine()
+        vector_store = get_vector_store()
+        
         # Use the chunker to process the folder
         chunks = chunker.chunk_directory(path)
         
@@ -249,13 +277,15 @@ async def import_folder(path: str):
 async def recluster():
     """Recluster all vectors."""
     try:
-        # TODO: implement clustering
-        # clusters = clustering_engine.recluster_vectors()
+        # Get component instance
+        clustering_engine = get_clustering_engine()
+        
+        # Perform reclustering
+        clusters = clustering_engine.recluster_vectors()
         
         return ReclusterResponse(
-            clusters=0,
-            status="not_implemented",
-            error="Clustering not yet implemented"
+            clusters=len(clusters),
+            status="success"
         )
         
     except Exception as e:
@@ -271,6 +301,12 @@ async def recluster():
 async def status():
     """Get system status."""
     try:
+        # Get component instances
+        vector_store = get_vector_store()
+        llm_engine = get_llm_engine()
+        clustering_engine = get_clustering_engine()
+        config = get_config()
+        
         # Test Qdrant connection
         qdrant_ok = vector_store.test_connection()
         
@@ -284,7 +320,7 @@ async def status():
         total_chunks = vector_store.get_total_points()
         
         # Get total clusters (placeholder for now)
-        total_clusters = 0  # TODO: implement cluster counting
+        total_clusters = len(clustering_engine.recluster_vectors())
         
         return StatusResponse(
             qdrant=qdrant_ok,
@@ -304,6 +340,9 @@ async def status():
 async def search(query: str, limit: int = 10):
     """Search for similar code patterns."""
     try:
+        # Get component instance
+        github_extractor = get_github_extractor()
+        
         results = github_extractor.search_patterns(query, limit)
         return {"results": results}
         
