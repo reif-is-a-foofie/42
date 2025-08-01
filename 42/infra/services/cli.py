@@ -1253,9 +1253,22 @@ def search(query: str = typer.Argument(..., help="Search query for Brave API")):
     """Perform manual search using Brave API."""
     try:
         async def perform_search():
-            from .un.redis_bus import RedisBus
-            from .un.knowledge_engine import KnowledgeEngine
-            from .un.autonomous_scanner import Steve
+            from .redis_bus import RedisBus
+            import sys
+            import os
+            sys.path.append('.')
+            
+            # Import using importlib for the mission modules
+            import importlib.util
+            knowledge_spec = importlib.util.spec_from_file_location("knowledge_engine", "42/mission/steve/knowledge_engine.py")
+            knowledge_module = importlib.util.module_from_spec(knowledge_spec)
+            knowledge_spec.loader.exec_module(knowledge_module)
+            KnowledgeEngine = knowledge_module.KnowledgeEngine
+            
+            steve_spec = importlib.util.spec_from_file_location("autonomous_scanner", "42/mission/steve/autonomous_scanner.py")
+            steve_module = importlib.util.module_from_spec(steve_spec)
+            steve_spec.loader.exec_module(steve_module)
+            Steve = steve_module.Steve
             
             config = load_config()
             redis_bus = RedisBus()

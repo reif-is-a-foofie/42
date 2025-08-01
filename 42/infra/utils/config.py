@@ -25,8 +25,8 @@ class Config(BaseSettings):
     redis_port: int = Field(default=6379, env="42_REDIS_PORT")
     
     # AI Provider settings
-    ai_provider: str = Field(default="ollama", env="42_AI_PROVIDER")  # "openai", "ollama", "anthropic"
-    ai_model: str = Field(default="llama3.2", env="42_AI_MODEL")
+    ai_provider: str = Field(default="openai", env="42_AI_PROVIDER")  # "openai", "ollama", "anthropic"
+    ai_model: str = Field(default="gpt-3.5-turbo", env="42_AI_MODEL")
     ai_fallback_provider: str = Field(default="ollama", env="42_AI_FALLBACK_PROVIDER")
     ai_fallback_model: str = Field(default="llama3.2", env="42_AI_FALLBACK_MODEL")
     
