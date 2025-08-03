@@ -1,0 +1,34 @@
+# Cursor / Codex Rules for 42 (Alma)
+
+## 🔹 Project Philosophy
+- Alma = human companion and orchestrator.
+- All personas are modules; no unapproved files.
+- Every commit must improve reliability, memory, or autonomy.
+
+## 🔹 Allowed Modules
+- `alma/` – CLI + conversation orchestrator.
+- `librarian/` – LlamaIndex + Qdrant memory.
+- `hephaestus/` – Tool builder and validator.
+- `helaman/` – Worker agents (Redis jobs).
+- `moroni/` – Mission planner.
+- `forty_two/` – Self-upgrader and evaluator.
+
+## 🔹 Code Constraints
+- No new files outside `PLAN.md`, `AGENTS.md`, `tests/`, or defined modules.
+- Every module must have a test.
+- Do not modify `README.md` or `PLAN.md`.
+- Tool discovery must use Hephaestus API; never import random modules.
+- Self-learning limited to local vector DB and safe tool calls.
+
+## 🔹 Testing Rules
+- Pytest required.
+- Each module has a matching test file in `tests/`.
+- 42 must be able to:
+  1. Run `42 test-intelligence` (meta evaluation).
+  2. Pass red/blue self-upgrade checks.
+
+## 🔹 Autonomy Rules
+- Alma can call Hephaestus to add tools.
+- Alma can queue jobs for Helaman.
+- Alma can request missions from Moroni.
+- 42 decides how to improve and triggers upgrades.
